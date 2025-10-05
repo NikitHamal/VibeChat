@@ -482,4 +482,19 @@ button {
         padding: 0.5rem;
         gap: 0.5rem;
     }
+    #stranger-name {
+        font-size: 1rem;
+    }
+    #stranger-details {
+        font-size: 0.75rem;
+    }
+    .message {
+        font-size: 0.875rem;
+    }
+    .message.system {
+        font-size: 0.75rem;
+    }
+    #message-input {
+        font-size: 0.875rem;
+    }
 }
