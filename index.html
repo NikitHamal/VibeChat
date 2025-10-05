@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NepChat</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="home-screen" class="screen">
+        <div class="container">
+            <h1>NepChat</h1>
+            <p>Random online chatting with strangers</p>
+            <div class="input-group">
+                <input type="text" id="username" placeholder="Username" required>
+            </div>
+            <div class="input-group">
+                <select id="gender" required>
+                    <option value="" disabled selected>Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <input type="number" id="age" placeholder="Age (optional)">
+            </div>
+            <button id="start-chat-btn">Start Chat</button>
+        </div>
+    </div>
+
+    <div id="chat-screen" class="screen" style="display: none;">
+        <div class="chat-header">
+            <div class="user-info">
+                <img id="user-flag" src="" alt="Country Flag">
+                <span id="chat-username"></span>
+                <span id="chat-gender"></span>
+                <span id="chat-age"></span>
+            </div>
+            <div class="chat-controls">
+                <button id="next-btn">Next</button>
+                <button id="quit-btn">Quit</button>
+            </div>
+        </div>
+        <div class="chat-messages">
+        </div>
+        <div class="chat-input">
+            <input type="text" id="message-input" placeholder="Type a message...">
+            <button id="send-btn"><i class="material-icons">send</i></button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
