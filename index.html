@@ -3,55 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NepChat</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <title>NepChat - Modern Random Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
     <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
 </head>
-<body>
-    <div id="home-screen" class="screen">
-        <div class="container">
+<body class="light-theme">
+
+    <header class="top-bar">
+        <div class="logo">
+            <span class="material-symbols-outlined">chat_bubble</span>
             <h1>NepChat</h1>
-            <p>Random online chatting with strangers</p>
-            <div class="input-group">
-                <input type="text" id="username" placeholder="Username" required>
-            </div>
-            <div class="input-group">
-                <select id="gender" required>
-                    <option value="" disabled selected>Select Gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                </select>
-            </div>
-            <div class="input-group">
-                <input type="number" id="age" placeholder="Age (optional)">
-            </div>
-            <button id="start-chat-btn">Start Chat</button>
         </div>
-    </div>
+        <button id="theme-switcher" class="icon-button">
+            <span class="material-symbols-outlined">dark_mode</span>
+        </button>
+    </header>
 
-    <div id="chat-screen" class="screen" style="display: none;">
-        <div class="chat-header">
-            <div class="user-info">
-                <img id="user-flag" src="" alt="Country Flag">
-                <span id="chat-username"></span>
-                <span id="chat-gender"></span>
-                <span id="chat-age"></span>
+    <main>
+        <section id="home-screen" class="screen active">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Find a Stranger</h2>
+                    <p>Enter your details to start chatting.</p>
+                </div>
+                <div class="card-content">
+                    <div class="input-field">
+                        <span class="material-symbols-outlined">person</span>
+                        <input type="text" id="username" placeholder="Username" required>
+                    </div>
+                    <div class="input-field">
+                        <span class="material-symbols-outlined">wc</span>
+                        <select id="gender" required>
+                            <option value="" disabled selected>Select Gender</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="input-field">
+                        <span class="material-symbols-outlined">cake</span>
+                        <input type="number" id="age" placeholder="Age (Optional)">
+                    </div>
+                    <button id="start-chat-btn" class="fab-extended">
+                        <span class="material-symbols-outlined">chat</span>
+                        Start Chat
+                    </button>
+                </div>
             </div>
-            <div class="chat-controls">
-                <button id="next-btn">Next</button>
-                <button id="quit-btn">Quit</button>
-            </div>
-        </div>
-        <div class="chat-messages">
-        </div>
-        <div class="chat-input">
-            <input type="text" id="message-input" placeholder="Type a message...">
-            <button id="send-btn"><i class="material-icons">send</i></button>
-        </div>
-    </div>
+        </section>
 
-    <script src="script.js"></script>
+        <section id="chat-screen" class="screen">
+            <div id="connecting-overlay">
+                <div class="loader"></div>
+                <p>Connecting you to a stranger...</p>
+            </div>
+            <div class="chat-container">
+                <div class="chat-header">
+                    <div class="stranger-info">
+                        <img id="stranger-flag" src="" alt="Stranger's Flag">
+                        <div>
+                            <h3 id="stranger-name"></h3>
+                            <p id="stranger-details"></p>
+                        </div>
+                    </div>
+                    <div class="chat-actions">
+                        <button id="next-btn" class="button-tonal">Next</button>
+                        <button id="quit-btn" class="button-filled">Quit</button>
+                    </div>
+                </div>
+                <div class="chat-messages">
+                    <!-- Messages will be injected here -->
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="message-input" placeholder="Type a message...">
+                    <button id="send-btn" class="icon-button-filled">
+                        <span class="material-symbols-outlined">send</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
 </body>
 </html>
