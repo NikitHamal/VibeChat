@@ -405,6 +405,7 @@ button {
     color: var(--on-surface);
     font-family: var(--font-family);
     font-size: 1rem;
+    min-width: 0;
 }
 #message-input:focus {
     outline: 2px solid var(--primary);
@@ -476,5 +477,9 @@ button {
         border: none;
         height: 100%;
         box-shadow: none;
+    }
+    .chat-input-area {
+        padding: 0.5rem;
+        gap: 0.5rem;
     }
 }
