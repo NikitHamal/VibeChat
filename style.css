@@ -388,6 +388,39 @@ button {
     background-color: var(--surface-variant);
 }
 
+#message-suggestions {
+    padding: 0 1rem 0.5rem 1rem;
+    display: none; /* Hidden by default, shown by JS */
+    gap: 0.75rem;
+    overflow-x: auto;
+    scrollbar-width: none; /* Firefox */
+}
+
+#message-suggestions.active {
+    display: flex;
+}
+
+#message-suggestions::-webkit-scrollbar {
+    display: none; /* Safari and Chrome */
+}
+
+.suggestion-chip {
+    padding: 0.5rem 1rem;
+    background-color: var(--surface-container-highest);
+    color: var(--on-surface-variant);
+    border-radius: var(--border-radius-small);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+    transition: background-color var(--transition-short);
+}
+
+.suggestion-chip:hover {
+    background-color: var(--surface-variant);
+}
+
 .chat-input-area {
     display: flex;
     padding: 1rem;
@@ -489,7 +522,7 @@ button {
         font-size: 0.75rem;
     }
     .message {
-        font-size: 0.875rem;
+        font-size: 0.8125rem; /* 13px */
     }
     .message.system {
         font-size: 0.75rem;

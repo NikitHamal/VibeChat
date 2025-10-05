@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sendBtn = document.getElementById('send-btn');
     const chatMessages = document.querySelector('.chat-messages');
     const connectingOverlay = document.getElementById('connecting-overlay');
+    const messageSuggestionsContainer = document.getElementById('message-suggestions');
 
     // Chat screen specific elements
     const strangerName = document.getElementById('stranger-name');
@@ -22,6 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let user = {};
     let bot = null;
+    let hasSentFirstMessage = false;
+
+    const messageSuggestions = ["Hi!", "Hey", "Hello", "ASL?", "What's up?", "M or F?"];
 
     // --- Bots ---
     const bots = [
@@ -81,16 +85,40 @@ document.addEventListener('DOMContentLoaded', () => {
         startChat();
     });
 
+    // --- Message Suggestions ---
+    function displayMessageSuggestions() {
+        messageSuggestionsContainer.innerHTML = '';
+        messageSuggestions.forEach(text => {
+            const chip = document.createElement('div');
+            chip.classList.add('suggestion-chip');
+            chip.textContent = text;
+            chip.addEventListener('click', () => {
+                messageInput.value = text;
+                sendMessage();
+            });
+            messageSuggestionsContainer.appendChild(chip);
+        });
+        messageSuggestionsContainer.classList.add('active');
+    }
+
+    function hideMessageSuggestions() {
+        messageSuggestionsContainer.classList.remove('active');
+        messageSuggestionsContainer.innerHTML = '';
+    }
+
+
     // --- Chat Logic ---
     function startChat() {
         connectingOverlay.classList.add('active');
         chatMessages.innerHTML = '';
+        hasSentFirstMessage = false;
 
         setTimeout(() => {
             bot = bots[Math.floor(Math.random() * bots.length)];
             updateChatHeader(bot);
             connectingOverlay.classList.remove('active');
             displayMessage(`You're now chatting with ${bot.name}. Be nice!`, 'system');
+            displayMessageSuggestions();
         }, 2500);
     }
 
@@ -118,6 +146,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (messageText && bot) {
             displayMessage(messageText, 'sent');
             messageInput.value = '';
+            if (!hasSentFirstMessage) {
+                hideMessageSuggestions();
+                hasSentFirstMessage = true;
+            }
             setTimeout(botResponse, 1200 + Math.random() * 800);
         }
     }
@@ -140,6 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bot) {
             displayMessage(`${bot.name} has disconnected.`, 'system');
             bot = null;
+            hideMessageSuggestions();
             startChat();
         }
     });
@@ -148,6 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bot) {
             displayMessage(`You have disconnected.`, 'system');
         }
+        hideMessageSuggestions();
         setTimeout(() => {
             bot = null;
             showScreen('home');
