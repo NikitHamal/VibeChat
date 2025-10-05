@@ -406,19 +406,21 @@ button {
 
 .suggestion-chip {
     padding: 0.5rem 1rem;
-    background-color: var(--surface-container-highest);
+    background-color: transparent;
     color: var(--on-surface-variant);
-    border-radius: var(--border-radius-small);
+    border: 1px solid var(--outline);
+    border-radius: var(--border-radius-full);
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
     flex-shrink: 0;
     white-space: nowrap;
-    transition: background-color var(--transition-short);
+    transition: background-color var(--transition-short), border-color var(--transition-short);
 }
 
 .suggestion-chip:hover {
-    background-color: var(--surface-variant);
+    background-color: rgba(var(--primary), 0.08);
+    border-color: var(--primary);
 }
 
 .chat-input-area {
