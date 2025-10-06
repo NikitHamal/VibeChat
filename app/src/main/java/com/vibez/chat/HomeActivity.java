@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.EditText;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -27,7 +26,6 @@ public class HomeActivity extends AppCompatActivity {
 
     private MaterialToolbar toolbar;
     private EditText usernameEditText, ageEditText;
-    private LinearLayout genderLayout;
     private TextView genderTextView;
     private MaterialButton startChatButton;
     private SharedPreferences sharedPreferences;
@@ -44,7 +42,6 @@ public class HomeActivity extends AppCompatActivity {
         toolbar = findViewById(R.id.toolbar);
         usernameEditText = findViewById(R.id.username_edit_text);
         ageEditText = findViewById(R.id.age_edit_text);
-        genderLayout = findViewById(R.id.gender_layout);
         genderTextView = findViewById(R.id.gender_text_view);
         startChatButton = findViewById(R.id.start_chat_button);
 
@@ -58,7 +55,7 @@ public class HomeActivity extends AppCompatActivity {
         loadUserData();
 
         // Set listeners
-        genderLayout.setOnClickListener(v -> showGenderSelectionDialog());
+        genderTextView.setOnClickListener(v -> showGenderSelectionDialog());
         startChatButton.setOnClickListener(v -> startChat());
     }
 
