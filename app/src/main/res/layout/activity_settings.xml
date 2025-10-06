@@ -86,7 +86,7 @@
                             android:text="Guest User"
                             android:textSize="20sp"
                             android:textColor="?attr/colorOnPrimaryContainer"
-                            android:fontFamily="@font/poppins_semibold"
+                            android:fontFamily="@font/poppins_semi_bold"
                             android:layout_marginBottom="4dp" />
 
                         <TextView
@@ -111,7 +111,7 @@
                 android:text="Appearance"
                 android:textSize="14sp"
                 android:textColor="?attr/colorPrimary"
-                android:fontFamily="@font/poppins_semibold"
+                android:fontFamily="@font/poppins_semi_bold"
                 android:layout_marginStart="28dp"
                 android:layout_marginTop="8dp"
                 android:layout_marginBottom="8dp"
@@ -210,7 +210,7 @@
                 android:text="About"
                 android:textSize="14sp"
                 android:textColor="?attr/colorPrimary"
-                android:fontFamily="@font/poppins_semibold"
+                android:fontFamily="@font/poppins_semi_bold"
                 android:layout_marginStart="28dp"
                 android:layout_marginTop="8dp"
                 android:layout_marginBottom="8dp"
@@ -373,7 +373,7 @@
                     android:text="VibeZ"
                     android:textSize="16sp"
                     android:textColor="?attr/colorOnSurfaceVariant"
-                    android:fontFamily="@font/poppins_semibold"
+                    android:fontFamily="@font/poppins_semi_bold"
                     android:alpha="0.5" />
 
                 <TextView
