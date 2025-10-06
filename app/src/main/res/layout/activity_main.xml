@@ -7,12 +7,12 @@
     android:background="?attr/colorSurface"
     tools:context=".MainActivity">
 
-    <de.hdodenhof.circleimageview.CircleImageView
+    <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/splash_icon"
         android:layout_width="96dp"
         android:layout_height="96dp"
         android:src="@mipmap/ic_launcher_round"
-        app:civ_border_width="0dp"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.App.CornerSize4dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
