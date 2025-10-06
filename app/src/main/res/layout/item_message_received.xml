@@ -2,17 +2,22 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:gravity="start"
     android:orientation="vertical"
-    android:padding="8dp"
-    android:gravity="start">
+    android:paddingStart="8dp"
+    android:paddingEnd="64dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp"
+    android:clipToPadding="false">
 
     <TextView
         android:id="@+id/message_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="@drawable/bg_message_received"
-        android:textColor="@color/black"
+        android:background="@drawable/bg_message_received_bubble"
         android:padding="12dp"
-        android:text="Hello there!"/>
+        android:text="This is a received message."
+        android:textColor="?attr/colorOnSecondaryContainer"
+        android:textSize="14sp" />
 
 </LinearLayout>

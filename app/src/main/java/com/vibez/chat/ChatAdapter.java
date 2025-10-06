@@ -4,16 +4,15 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
 import java.util.List;
 
 public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
-    private static final int VIEW_TYPE_SENT = 1;
-    private static final int VIEW_TYPE_RECEIVED = 2;
-
-    private List<Message> messages;
+    private final List<Message> messages;
 
     public ChatAdapter(List<Message> messages) {
         this.messages = messages;
@@ -21,32 +20,41 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     @Override
     public int getItemViewType(int position) {
-        if (messages.get(position).isSentByUser()) {
-            return VIEW_TYPE_SENT;
-        } else {
-            return VIEW_TYPE_RECEIVED;
-        }
+        return messages.get(position).getType();
     }
 
     @NonNull
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        if (viewType == VIEW_TYPE_SENT) {
-            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_message_sent, parent, false);
-            return new SentMessageViewHolder(view);
-        } else {
-            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_message_received, parent, false);
-            return new ReceivedMessageViewHolder(view);
+        LayoutInflater inflater = LayoutInflater.from(parent.getContext());
+        switch (viewType) {
+            case Message.TYPE_SENT:
+                View sentView = inflater.inflate(R.layout.item_message_sent, parent, false);
+                return new SentMessageViewHolder(sentView);
+            case Message.TYPE_RECEIVED:
+                View receivedView = inflater.inflate(R.layout.item_message_received, parent, false);
+                return new ReceivedMessageViewHolder(receivedView);
+            case Message.TYPE_SYSTEM:
+                View systemView = inflater.inflate(R.layout.item_message_system, parent, false);
+                return new SystemMessageViewHolder(systemView);
+            default:
+                throw new IllegalArgumentException("Invalid view type");
         }
     }
 
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         Message message = messages.get(position);
-        if (holder.getItemViewType() == VIEW_TYPE_SENT) {
-            ((SentMessageViewHolder) holder).bind(message);
-        } else {
-            ((ReceivedMessageViewHolder) holder).bind(message);
+        switch (holder.getItemViewType()) {
+            case Message.TYPE_SENT:
+                ((SentMessageViewHolder) holder).bind(message);
+                break;
+            case Message.TYPE_RECEIVED:
+                ((ReceivedMessageViewHolder) holder).bind(message);
+                break;
+            case Message.TYPE_SYSTEM:
+                ((SystemMessageViewHolder) holder).bind(message);
+                break;
         }
     }
 
@@ -72,6 +80,19 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         TextView messageText;
 
         ReceivedMessageViewHolder(View itemView) {
+            super(itemView);
+            messageText = itemView.findViewById(R.id.message_text);
+        }
+
+        void bind(Message message) {
+            messageText.setText(message.getText());
+        }
+    }
+
+    static class SystemMessageViewHolder extends RecyclerView.ViewHolder {
+        TextView messageText;
+
+        SystemMessageViewHolder(View itemView) {
             super(itemView);
             messageText = itemView.findViewById(R.id.message_text);
         }

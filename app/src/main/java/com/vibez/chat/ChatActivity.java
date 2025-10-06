@@ -3,22 +3,18 @@ package com.vibez.chat;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.TextView;
-
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
-import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.chip.Chip;
-import com.google.android.material.chip.ChipGroup;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,61 +26,76 @@ public class ChatActivity extends AppCompatActivity {
     private ChatAdapter chatAdapter;
     private List<Message> messages;
     private EditText messageEditText;
-    private FloatingActionButton sendButton;
-    private TextView strangerNameTextView, strangerDetailsTextView;
-    private ChipGroup suggestionChipGroup;
-    private ConstraintLayout loadingOverlay;
+    private MaterialButton sendButton, nextButton;
+    private TextView strangerNameTextView, strangerDetailsTextView, strangerFlagTextView;
+    private LinearLayout suggestionChipContainer;
+    private FrameLayout loadingOverlay;
+    private MaterialToolbar toolbar;
 
-    private String[] botNames = {"Aria", "Leo", "Mia", "Zoe", "Kai"};
-    private String[] botGenders = {"female", "male", "female", "female", "male"};
-    private int[] botAges = {22, 25, 21, 23, 24};
-    private Random random = new Random();
+    private final String[] botNames = {"Aria", "Leo", "Mia", "Zoe", "Kai"};
+    private final String[] botGenders = {"female", "male", "female", "female", "male"};
+    private final int[] botAges = {22, 25, 21, 23, 24};
+    private final String[] botFlags = {"🇨🇦", "🇺🇸", "🇬🇧", "🇦🇺", "🇮🇳", "🇯🇵", "🇩🇪"};
+    private final String[] suggestionChips = {"Hi!", "Hey", "Hello", "ASL?", "What's up?"};
+    private final Random random = new Random();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        Toolbar toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        getSupportActionBar().setDisplayShowTitleEnabled(false);
-
+        // Initialize views
+        toolbar = findViewById(R.id.toolbar);
         strangerNameTextView = findViewById(R.id.stranger_name);
         strangerDetailsTextView = findViewById(R.id.stranger_details);
-
+        strangerFlagTextView = findViewById(R.id.stranger_flag);
         chatRecyclerView = findViewById(R.id.chat_recycler_view);
         messageEditText = findViewById(R.id.message_edit_text);
         sendButton = findViewById(R.id.send_button);
-        suggestionChipGroup = findViewById(R.id.suggestion_chip_group);
+        nextButton = findViewById(R.id.next_button);
+        suggestionChipContainer = findViewById(R.id.suggestion_chip_container);
         loadingOverlay = findViewById(R.id.loading_overlay);
 
+        // Setup Toolbar
+        setSupportActionBar(toolbar);
+        getSupportActionBar().setDisplayShowTitleEnabled(false);
+        toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
+
+        // Setup RecyclerView
         messages = new ArrayList<>();
         chatAdapter = new ChatAdapter(messages);
-
         LinearLayoutManager layoutManager = new LinearLayoutManager(this);
         chatRecyclerView.setLayoutManager(layoutManager);
         chatRecyclerView.setAdapter(chatAdapter);
 
+        // Set listeners
         sendButton.setOnClickListener(v -> sendMessage());
+        nextButton.setOnClickListener(v -> connectToNewStranger());
         setupSuggestionChips();
 
+        // Start chat
         connectToNewStranger();
     }
 
     private void connectToNewStranger() {
         loadingOverlay.setVisibility(View.VISIBLE);
-        messages.clear();
-        chatAdapter.notifyDataSetChanged();
+        suggestionChipContainer.setVisibility(View.VISIBLE); // Show suggestions for new chat
+        if (messages != null) {
+            messages.clear();
+            chatAdapter.notifyDataSetChanged();
+        }
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             int botIndex = random.nextInt(botNames.length);
             String botName = botNames[botIndex];
             String botDetails = botGenders[botIndex] + ", " + botAges[botIndex];
+            String botFlag = botFlags[random.nextInt(botFlags.length)];
 
             strangerNameTextView.setText(botName);
             strangerDetailsTextView.setText(botDetails);
+            strangerFlagTextView.setText(botFlag);
 
-            addMessage(new Message("You're now chatting with " + botName + ". Be nice!", false));
+            addMessage(new Message("You're now chatting with " + botName + ". Be nice!", Message.TYPE_SYSTEM));
             loadingOverlay.setVisibility(View.GONE);
         }, 2000); // Simulate network delay
     }
@@ -92,23 +103,24 @@ public class ChatActivity extends AppCompatActivity {
     private void sendMessage() {
         String messageText = messageEditText.getText().toString().trim();
         if (!messageText.isEmpty()) {
-            addMessage(new Message(messageText, true));
+            addMessage(new Message(messageText, Message.TYPE_SENT));
             messageEditText.setText("");
             simulateBotResponse(messageText);
         }
     }
 
-    private void sendMessage(String messageText) {
+    private void sendMessageFromChip(String messageText) {
         if (!messageText.isEmpty()) {
-            addMessage(new Message(messageText, true));
+            addMessage(new Message(messageText, Message.TYPE_SENT));
             simulateBotResponse(messageText);
+            suggestionChipContainer.setVisibility(View.GONE); // Hide suggestions after use
         }
     }
 
     private void simulateBotResponse(String userMessage) {
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             String response = getBotResponse(userMessage);
-            addMessage(new Message(response, false));
+            addMessage(new Message(response, Message.TYPE_RECEIVED));
         }, 1000);
     }
 
@@ -120,7 +132,7 @@ public class ChatActivity extends AppCompatActivity {
         } else if (lowerCaseMessage.contains("asl")) {
             return "I'm a bot from the internet, so age and location don't really apply to me!";
         } else if (lowerCaseMessage.contains("your name")) {
-            return "You can call me VibezBot!";
+            return "You can call me VibeZBot!";
         } else if (lowerCaseMessage.contains("hello") || lowerCaseMessage.contains("hi") || lowerCaseMessage.contains("hey")) {
             String[] greetings = {"Hello there!", "Hi! What's on your mind?", "Hey! Nice to chat with you."};
             return greetings[random.nextInt(greetings.length)];
@@ -131,13 +143,13 @@ public class ChatActivity extends AppCompatActivity {
         }
 
         String[] genericResponses = {
-            "That's interesting!",
-            "Tell me more.",
-            "I'm not sure I understand. Can you explain?",
-            "Haha, that's funny!",
-            "What do you think?",
-            "Cool!",
-            "I see."
+                "That's interesting!",
+                "Tell me more.",
+                "I'm not sure I understand. Can you explain?",
+                "Haha, that's funny!",
+                "What do you think?",
+                "Cool!",
+                "I see."
         };
         return genericResponses[random.nextInt(genericResponses.length)];
     }
@@ -149,30 +161,13 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void setupSuggestionChips() {
-        for (int i = 0; i < suggestionChipGroup.getChildCount(); i++) {
-            Chip chip = (Chip) suggestionChipGroup.getChildAt(i);
-            chip.setOnClickListener(v -> {
-                sendMessage(chip.getText().toString());
-            });
+        suggestionChipContainer.removeAllViews();
+        LayoutInflater inflater = LayoutInflater.from(this);
+        for (String suggestion : suggestionChips) {
+            TextView chip = (TextView) inflater.inflate(R.layout.item_suggestion_chip, suggestionChipContainer, false);
+            chip.setText(suggestion);
+            chip.setOnClickListener(v -> sendMessageFromChip(chip.getText().toString()));
+            suggestionChipContainer.addView(chip);
         }
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.chat_menu, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        int itemId = item.getItemId();
-        if (itemId == R.id.action_next) {
-            connectToNewStranger();
-            return true;
-        } else if (itemId == R.id.action_quit) {
-            finish();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
     }
 }

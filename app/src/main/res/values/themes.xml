@@ -1,17 +1,88 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.Vibez" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_700</item>
-        <item name="colorOnSecondary">@color/black</item>
-        <!-- Status bar color. -->
-        <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimaryVariant</item>
-        <!-- Customize your theme here. -->
-        <item name="android:fontFamily">@font/poppins_font_family</item>
+    <style name="Base.Theme.VibeZ" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@color/light_background</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+        <item name="android:navigationBarColor">@color/light_surfaceContainerHighest</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
+
+        <!-- Material 3 Theming -->
+        <item name="colorPrimary">@color/light_primary</item>
+        <item name="colorOnPrimary">@color/light_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/light_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/light_onPrimaryContainer</item>
+        <item name="colorSecondary">@color/light_secondary</item>
+        <item name="colorOnSecondary">@color/light_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/light_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/light_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/light_tertiary</item>
+        <item name="colorOnTertiary">@color/light_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/light_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/light_onTertiaryContainer</item>
+        <item name="colorError">@color/light_error</item>
+        <item name="colorOnError">@color/light_onError</item>
+        <item name="colorErrorContainer">@color/light_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/light_onErrorContainer</item>
+        <item name="android:colorBackground">@color/light_background</item>
+        <item name="colorOnBackground">@color/light_onBackground</item>
+        <item name="colorSurface">@color/light_surface</item>
+        <item name="colorOnSurface">@color/light_onSurface</item>
+        <item name="colorSurfaceVariant">@color/light_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/light_onSurfaceVariant</item>
+        <item name="colorOutline">@color/light_outline</item>
+
+        <!-- Font Family -->
+        <item name="android:fontFamily">@font/poppins</item>
+        <item name="fontFamily">@font/poppins</item>
+        <item name="android:includeFontPadding">false</item>
+
     </style>
+
+    <style name="Theme.VibeZ" parent="Base.Theme.VibeZ" />
+
+    <style name="Theme.VibeZ.Splash" parent="Theme.VibeZ.Light" />
+
+    <style name="Theme.VibeZ.Light" parent="Base.Theme.VibeZ" />
+
+    <style name="Theme.VibeZ.Dark" parent="Base.Theme.VibeZ">
+        <item name="android:statusBarColor">@color/dark_background</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:navigationBarColor">@color/dark_surfaceContainerHighest</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
+
+        <!-- Material 3 Theming -->
+        <item name="colorPrimary">@color/dark_primary</item>
+        <item name="colorOnPrimary">@color/dark_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/dark_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/dark_onPrimaryContainer</item>
+        <item name="colorSecondary">@color/dark_secondary</item>
+        <item name="colorOnSecondary">@color/dark_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/dark_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/dark_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/dark_tertiary</item>
+        <item name="colorOnTertiary">@color/dark_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/dark_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/dark_onTertiaryContainer</item>
+        <item name="colorError">@color/dark_error</item>
+        <item name="colorOnError">@color/dark_onError</item>
+        <item name="colorErrorContainer">@color/dark_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/dark_onErrorContainer</item>
+        <item name="android:colorBackground">@color/dark_background</item>
+        <item name="colorOnBackground">@color/dark_onBackground</item>
+        <item name="colorSurface">@color/dark_surface</item>
+        <item name="colorOnSurface">@color/dark_onSurface</item>
+        <item name="colorSurfaceVariant">@color/dark_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/dark_onSurfaceVariant</item>
+        <item name="colorOutline">@color/dark_outline</item>
+    </style>
+
+    <style name="ShapeAppearance.App.Rounded" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerRadius">12dp</item>
+    </style>
+
+    <style name="Widget.App.TextInputLayout" parent="Widget.Material3.TextInputLayout.FilledBox">
+        <item name="shapeAppearance">@style/ShapeAppearance.App.Rounded</item>
+    </style>
+
 </resources>

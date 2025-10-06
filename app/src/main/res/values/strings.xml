@@ -12,9 +12,23 @@
     <string name="next">Next</string>
     <string name="quit">Quit</string>
     <string name="type_a_message">Type a message...</string>
+    <string name="settings">Settings</string>
     <string-array name="genders">
         <item>Male</item>
         <item>Female</item>
         <item>Other</item>
+    </string-array>
+
+    <!-- Theme Preferences -->
+    <string-array name="theme_entries">
+        <item>Light</item>
+        <item>Dark</item>
+        <item>System Default</item>
+    </string-array>
+
+    <string-array name="theme_values">
+        <item>light</item>
+        <item>dark</item>
+        <item>system</item>
     </string-array>
 </resources>

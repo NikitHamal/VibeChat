@@ -1,19 +1,23 @@
 package com.vibez.chat;
 
 public class Message {
-    private String text;
-    private boolean isSentByUser;
+    public static final int TYPE_SENT = 0;
+    public static final int TYPE_RECEIVED = 1;
+    public static final int TYPE_SYSTEM = 2;
 
-    public Message(String text, boolean isSentByUser) {
+    private String text;
+    private int type;
+
+    public Message(String text, int type) {
         this.text = text;
-        this.isSentByUser = isSentByUser;
+        this.type = type;
     }
 
     public String getText() {
         return text;
     }
 
-    public boolean isSentByUser() {
-        return isSentByUser;
+    public int getType() {
+        return type;
     }
 }
