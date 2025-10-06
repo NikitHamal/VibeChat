@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">Vibez</string>
+    <string name="find_a_stranger">Find a Stranger</string>
+    <string name="enter_your_details">Enter your details to start chatting.</string>
+    <string name="username">Username</string>
+    <string name="age">Age</string>
+    <string name="gender">Gender</string>
+    <string name="male">Male</string>
+    <string name="female">Female</string>
+    <string name="other">Other</string>
+    <string name="start_chat">Start Chat</string>
+    <string name="next">Next</string>
+    <string name="quit">Quit</string>
+    <string name="type_a_message">Type a message...</string>
+    <string-array name="genders">
+        <item>Male</item>
+        <item>Female</item>
+        <item>Other</item>
+    </string-array>
+</resources>
