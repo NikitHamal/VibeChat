@@ -2,6 +2,10 @@ package com.vibez.chat;
 
 import android.app.Application;
 import android.content.Intent;
+import android.content.SharedPreferences;
+
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.preference.PreferenceManager;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -11,7 +15,29 @@ public class VibeZApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        
+        // Apply saved theme preference on app startup
+        applyThemePreference();
+        
         Thread.setDefaultUncaughtExceptionHandler(new GlobalExceptionHandler());
+    }
+
+    private void applyThemePreference() {
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        String theme = sharedPreferences.getString("theme", "system");
+        
+        switch (theme) {
+            case "light":
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+                break;
+            case "dark":
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+                break;
+            case "system":
+            default:
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+                break;
+        }
     }
 
     private class GlobalExceptionHandler implements Thread.UncaughtExceptionHandler {

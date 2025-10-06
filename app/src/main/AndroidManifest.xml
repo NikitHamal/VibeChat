@@ -24,6 +24,9 @@
             </intent-filter>
         </activity>
         <activity
+            android:name=".AuthActivity"
+            android:exported="false" />
+        <activity
             android:name=".HomeActivity"
             android:exported="false" />
         <activity
