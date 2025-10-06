@@ -80,35 +80,35 @@
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_hi"
-                style="@style/Widget.MaterialComponents.Chip.Suggestion"
+                style="@style/Widget.Material3.Chip.Suggestion"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Hi!" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_hey"
-                style="@style/Widget.MaterialComponents.Chip.Suggestion"
+                style="@style/Widget.Material3.Chip.Suggestion"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Hey" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_hello"
-                style="@style/Widget.MaterialComponents.Chip.Suggestion"
+                style="@style/Widget.Material3.Chip.Suggestion"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Hello" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_asl"
-                style="@style/Widget.MaterialComponents.Chip.Suggestion"
+                style="@style/Widget.Material3.Chip.Suggestion"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="ASL?" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_whats"
-                style="@style/Widget.MaterialComponents.Chip.Suggestion"
+                style="@style/Widget.Material3.Chip.Suggestion"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="What's up?" />
