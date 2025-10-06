@@ -14,7 +14,7 @@
         android:id="@+id/message_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="?attr/colorSurfaceContainerHighest"
+        android:background="@drawable/bg_message_received_bubble"
         android:padding="12dp"
         android:text="This is a received message."
         android:textColor="?attr/colorOnSurface"
