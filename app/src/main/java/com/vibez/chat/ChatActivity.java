@@ -9,6 +9,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -59,6 +60,19 @@ public class ChatActivity extends AppCompatActivity {
         // Setup Toolbar
         setSupportActionBar(toolbar);
         getSupportActionBar().setDisplayShowTitleEnabled(false);
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                // Show "You left the chat" message and exit after a delay
+                addMessage(new Message("You left the chat.", Message.TYPE_SYSTEM));
+                messageEditText.setEnabled(false);
+                sendButton.setEnabled(false);
+                nextButton.setEnabled(false);
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    finish();
+                }, 900);
+            }
+        });
         toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
 
         // Setup RecyclerView
