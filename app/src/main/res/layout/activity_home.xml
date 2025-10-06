@@ -5,86 +5,157 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center"
-    android:background="@color/dark_purple"
+    android:background="?attr/colorBackground"
     tools:context=".HomeActivity">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/find_a_stranger"
-        android:textSize="28sp"
-        android:textColor="@color/white"
-        android:textStyle="bold"
-        android:layout_marginBottom="8dp"/>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/enter_your_details"
-        android:textSize="16sp"
-        android:textColor="@color/light_lavender"
-        android:layout_marginBottom="32dp"/>
-
-    <com.google.android.material.textfield.TextInputLayout
+    <!-- Top Bar -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-        app:startIconDrawable="@drawable/ic_person"
-        android:layout_marginBottom="16dp">
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorSurface"
+        app:title="@string/app_name"
+        app:titleTextColor="?attr/colorPrimary"
+        app:menu="@menu/home_menu" />
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/username_edit_text"
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/username"
-            android:textColor="@color/white"
-            android:inputType="textPersonName"/>
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:gravity="center">
 
-    </com.google.android.material.textfield.TextInputLayout>
+            <!-- Card Container -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginHorizontal="8dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="?attr/colorSurfaceVariant"
+                app:cardCornerRadius="16dp">
 
-    <com.google.android.material.textfield.TextInputLayout
-        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:startIconDrawable="@drawable/ic_gender_placeholder"
-        android:layout_marginBottom="16dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="32dp">
 
-        <AutoCompleteTextView
-            android:id="@+id/gender_auto_complete_text_view"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="none"
-            android:hint="@string/gender"
-            android:textColor="@color/white"/>
+                    <!-- Header -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="@string/find_a_stranger"
+                        android:textSize="28sp"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp"/>
 
-    </com.google.android.material.textfield.TextInputLayout>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="@string/enter_your_details"
+                        android:textSize="16sp"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:layout_marginBottom="32dp"/>
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-        app:startIconDrawable="@drawable/ic_cake_placeholder"
-        android:layout_marginBottom="32dp">
+                    <!-- Username Input -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        style="@style/Widget.Material3.TextInputLayout.FilledBox"
+                        app:startIconDrawable="@drawable/ic_person"
+                        app:startIconTint="?attr/colorOnSurfaceVariant"
+                        android:layout_marginBottom="16dp"
+                        app:boxBackgroundColor="?attr/colorSurfaceVariant"
+                        app:hintTextColor="?attr/colorOnSurfaceVariant">
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/age_edit_text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="@string/age"
-            android:textColor="@color/white"
-            android:inputType="number"/>
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/username_edit_text"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="@string/username"
+                            android:textColor="?attr/colorOnSurface"
+                            android:inputType="textPersonName"
+                            android:maxLines="1"/>
 
-    </com.google.android.material.textfield.TextInputLayout>
+                    </com.google.android.material.textfield.TextInputLayout>
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/start_chat_button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/start_chat"
-        app:icon="@drawable/ic_chat_placeholder"
-        android:padding="16dp"
-        app:cornerRadius="28dp"/>
+                    <!-- Gender Selection -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/gender_input_layout"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        style="@style/Widget.Material3.TextInputLayout.FilledBox"
+                        app:startIconDrawable="@drawable/ic_gender_placeholder"
+                        app:startIconTint="?attr/colorOnSurfaceVariant"
+                        android:layout_marginBottom="16dp"
+                        app:boxBackgroundColor="?attr/colorSurfaceVariant"
+                        app:hintTextColor="?attr/colorOnSurfaceVariant">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/gender_edit_text"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="@string/select_gender"
+                            android:textColor="?attr/colorOnSurface"
+                            android:inputType="none"
+                            android:focusable="false"
+                            android:clickable="true"
+                            android:maxLines="1"/>
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Age Input -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        style="@style/Widget.Material3.TextInputLayout.FilledBox"
+                        app:startIconDrawable="@drawable/ic_cake_placeholder"
+                        app:startIconTint="?attr/colorOnSurfaceVariant"
+                        android:layout_marginBottom="32dp"
+                        app:boxBackgroundColor="?attr/colorSurfaceVariant"
+                        app:hintTextColor="?attr/colorOnSurfaceVariant">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/age_edit_text"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="@string/age"
+                            android:textColor="?attr/colorOnSurface"
+                            android:inputType="number"
+                            android:maxLines="1"/>
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Start Chat Button -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/start_chat_button"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/start_chat"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:paddingVertical="16dp"
+                        app:icon="@drawable/ic_chat_placeholder"
+                        app:iconGravity="textStart"
+                        app:iconPadding="12dp"
+                        app:cornerRadius="999dp"
+                        style="@style/Widget.Material3.Button.TonalButton"/>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+    </ScrollView>
 
 </LinearLayout>

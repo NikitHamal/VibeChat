@@ -1,24 +1,22 @@
 package com.vibez.chat;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,32 +28,37 @@ public class ChatActivity extends AppCompatActivity {
     private ChatAdapter chatAdapter;
     private List<Message> messages;
     private EditText messageEditText;
-    private FloatingActionButton sendButton;
     private TextView strangerNameTextView, strangerDetailsTextView;
+    private ImageView strangerFlag;
     private ChipGroup suggestionChipGroup;
+    private View suggestionChipsScroll;
     private ConstraintLayout loadingOverlay;
 
     private String[] botNames = {"Aria", "Leo", "Mia", "Zoe", "Kai"};
     private String[] botGenders = {"female", "male", "female", "female", "male"};
     private int[] botAges = {22, 25, 21, 23, 24};
+    private String[] botCountries = {"ca", "gb", "us", "au", "de"};
     private Random random = new Random();
+    private boolean hasSentFirstMessage = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Apply saved theme
+        SharedPreferences sharedPreferences = getSharedPreferences("VibezPrefs", MODE_PRIVATE);
+        int themeMode = sharedPreferences.getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_NO);
+        AppCompatDelegate.setDefaultNightMode(themeMode);
+        
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        Toolbar toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        getSupportActionBar().setDisplayShowTitleEnabled(false);
-
         strangerNameTextView = findViewById(R.id.stranger_name);
         strangerDetailsTextView = findViewById(R.id.stranger_details);
+        strangerFlag = findViewById(R.id.stranger_flag);
 
         chatRecyclerView = findViewById(R.id.chat_recycler_view);
         messageEditText = findViewById(R.id.message_edit_text);
-        sendButton = findViewById(R.id.send_button);
         suggestionChipGroup = findViewById(R.id.suggestion_chip_group);
+        suggestionChipsScroll = findViewById(R.id.suggestion_chips_scroll);
         loadingOverlay = findViewById(R.id.loading_overlay);
 
         messages = new ArrayList<>();
@@ -65,9 +68,11 @@ public class ChatActivity extends AppCompatActivity {
         chatRecyclerView.setLayoutManager(layoutManager);
         chatRecyclerView.setAdapter(chatAdapter);
 
-        sendButton.setOnClickListener(v -> sendMessage());
-        setupSuggestionChips();
+        findViewById(R.id.send_button).setOnClickListener(v -> sendMessage());
+        findViewById(R.id.next_button).setOnClickListener(v -> connectToNewStranger());
+        findViewById(R.id.quit_button).setOnClickListener(v -> finish());
 
+        setupSuggestionChips();
         connectToNewStranger();
     }
 
@@ -75,6 +80,7 @@ public class ChatActivity extends AppCompatActivity {
         loadingOverlay.setVisibility(View.VISIBLE);
         messages.clear();
         chatAdapter.notifyDataSetChanged();
+        hasSentFirstMessage = false;
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             int botIndex = random.nextInt(botNames.length);
@@ -83,24 +89,42 @@ public class ChatActivity extends AppCompatActivity {
 
             strangerNameTextView.setText(botName);
             strangerDetailsTextView.setText(botDetails);
+            
+            // Load flag (using a placeholder for now)
+            // You can use a library like Glide or Picasso to load flag images
+            // For now, we'll just set a background color
+            strangerFlag.setBackgroundColor(getColor(R.color.md_theme_light_surfaceVariant));
 
-            addMessage(new Message("You're now chatting with " + botName + ". Be nice!", false));
+            addMessage(new Message("You're now chatting with " + botName + ". Be nice!", false, true));
             loadingOverlay.setVisibility(View.GONE);
-        }, 2000); // Simulate network delay
+            suggestionChipsScroll.setVisibility(View.VISIBLE);
+        }, 2000);
     }
 
     private void sendMessage() {
         String messageText = messageEditText.getText().toString().trim();
         if (!messageText.isEmpty()) {
-            addMessage(new Message(messageText, true));
+            addMessage(new Message(messageText, true, false));
             messageEditText.setText("");
+            
+            if (!hasSentFirstMessage) {
+                suggestionChipsScroll.setVisibility(View.GONE);
+                hasSentFirstMessage = true;
+            }
+            
             simulateBotResponse(messageText);
         }
     }
 
     private void sendMessage(String messageText) {
         if (!messageText.isEmpty()) {
-            addMessage(new Message(messageText, true));
+            addMessage(new Message(messageText, true, false));
+            
+            if (!hasSentFirstMessage) {
+                suggestionChipsScroll.setVisibility(View.GONE);
+                hasSentFirstMessage = true;
+            }
+            
             simulateBotResponse(messageText);
         }
     }
@@ -108,7 +132,7 @@ public class ChatActivity extends AppCompatActivity {
     private void simulateBotResponse(String userMessage) {
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             String response = getBotResponse(userMessage);
-            addMessage(new Message(response, false));
+            addMessage(new Message(response, false, false));
         }, 1000);
     }
 
@@ -155,24 +179,5 @@ public class ChatActivity extends AppCompatActivity {
                 sendMessage(chip.getText().toString());
             });
         }
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.chat_menu, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        int itemId = item.getItemId();
-        if (itemId == R.id.action_next) {
-            connectToNewStranger();
-            return true;
-        } else if (itemId == R.id.action_quit) {
-            finish();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
     }
 }
