@@ -31,12 +31,12 @@
 
                 <TextView
                     android:id="@+id/stranger_flag"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:padding="8dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:padding="4dp"
                     android:background="@drawable/bg_flag_container"
                     android:gravity="center"
-                    android:textSize="24sp"
+                    android:textSize="20sp"
                     tools:text="🇨🇦" />
 
                 <LinearLayout

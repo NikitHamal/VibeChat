@@ -1,12 +1,13 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Base.Theme.VibeZ" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Light theme colors as defaults -->
         <item name="android:statusBarColor">@color/light_background</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
         <item name="android:navigationBarColor">@color/light_surfaceContainerHighest</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
 
-        <!-- Material 3 Theming -->
+        <!-- Material 3 Theming - Light colors as defaults -->
         <item name="colorPrimary">@color/light_primary</item>
         <item name="colorOnPrimary">@color/light_onPrimary</item>
         <item name="colorPrimaryContainer">@color/light_primaryContainer</item>
@@ -30,15 +31,16 @@
         <item name="colorSurfaceVariant">@color/light_surfaceVariant</item>
         <item name="colorOnSurfaceVariant">@color/light_onSurfaceVariant</item>
         <item name="colorOutline">@color/light_outline</item>
+        <item name="colorSurfaceContainerHighest">@color/light_surfaceContainerHighest</item>
+        <item name="colorSurfaceContainerHigh">@color/light_surfaceContainerHigh</item>
 
         <!-- Font Family -->
         <item name="android:fontFamily">@font/poppins</item>
         <item name="fontFamily">@font/poppins</item>
         <item name="android:includeFontPadding">false</item>
-
     </style>
 
-    <style name="Theme.VibeZ" parent="Base.Theme.VibeZ" />
+    <style name="Theme.VibeZ" parent="Theme.VibeZ.Light" />
 
     <style name="Theme.VibeZ.Splash" parent="Theme.VibeZ.Light" />
 
@@ -74,6 +76,8 @@
         <item name="colorSurfaceVariant">@color/dark_surfaceVariant</item>
         <item name="colorOnSurfaceVariant">@color/dark_onSurfaceVariant</item>
         <item name="colorOutline">@color/dark_outline</item>
+        <item name="colorSurfaceContainerHighest">@color/dark_surfaceContainerHighest</item>
+        <item name="colorSurfaceContainerHigh">@color/dark_surfaceContainerHigh</item>
     </style>
 
     <style name="ShapeAppearance.App.Rounded" parent="">

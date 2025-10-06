@@ -3,14 +3,10 @@
 
     <PreferenceCategory app:title="Appearance">
 
-        <ListPreference
+        <Preference
             app:key="theme"
             app:title="Theme"
-            app:summary="Choose the app theme"
-            app:entries="@array/theme_entries"
-            app:entryValues="@array/theme_values"
-            app:defaultValue="system"
-            app:useSimpleSummaryProvider="true" />
+            app:summary="Choose the app theme" />
 
     </PreferenceCategory>
 
@@ -24,7 +20,7 @@
         <Preference
             app:key="developer"
             app:title="Developer"
-            app:summary="VibeZ Team" />
+            app:summary="Nikit Hamal" />
 
     </PreferenceCategory>
 

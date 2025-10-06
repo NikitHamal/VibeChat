@@ -4,23 +4,53 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatDelegate;
-import androidx.preference.ListPreference;
+import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
 public class SettingsFragment extends PreferenceFragmentCompat {
+
+    private static final String[] THEME_ENTRIES = {"Light", "Dark", "System Default"};
+    private static final String[] THEME_VALUES = {"light", "dark", "system"};
+    private int selectedThemeIndex = 2; // Default to system
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(R.xml.root_preferences, rootKey);
 
-        ListPreference themePreference = findPreference("theme");
+        Preference themePreference = findPreference("theme");
         if (themePreference != null) {
-            themePreference.setOnPreferenceChangeListener((preference, newValue) -> {
-                String themeValue = (String) newValue;
-                applyTheme(themeValue);
+            // Load current theme preference
+            SharedPreferences prefs = getPreferenceManager().getSharedPreferences();
+            String currentTheme = prefs.getString("theme", "system");
+            updateThemeSummary(currentTheme);
+
+            themePreference.setOnPreferenceClickListener(preference -> {
+                showThemeSelectionDialog();
                 return true;
             });
         }
+    }
+
+    private void showThemeSelectionDialog() {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Choose Theme")
+                .setSingleChoiceItems(THEME_ENTRIES, selectedThemeIndex, (dialog, which) -> {
+                    selectedThemeIndex = which;
+                    String themeValue = THEME_VALUES[which];
+                    applyTheme(themeValue);
+                    updateThemeSummary(themeValue);
+
+                    // Save preference
+                    SharedPreferences.Editor editor = getPreferenceManager().getSharedPreferences().edit();
+                    editor.putString("theme", themeValue);
+                    editor.apply();
+
+                    dialog.dismiss();
+                })
+                .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
+                .show();
     }
 
     private void applyTheme(String themeValue) {
@@ -35,6 +65,18 @@ public class SettingsFragment extends PreferenceFragmentCompat {
             default:
                 AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
                 break;
+        }
+    }
+
+    private void updateThemeSummary(String themeValue) {
+        Preference themePreference = findPreference("theme");
+        if (themePreference != null) {
+            for (int i = 0; i < THEME_VALUES.length; i++) {
+                if (THEME_VALUES[i].equals(themeValue)) {
+                    themePreference.setSummary(THEME_ENTRIES[i]);
+                    break;
+                }
+            }
         }
     }
 }

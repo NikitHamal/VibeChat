@@ -25,6 +25,7 @@
     <color name="light_onSurfaceVariant">#49454F</color>
     <color name="light_outline">#79747E</color>
     <color name="light_surfaceContainerHighest">#E6E0E9</color>
+    <color name="light_surfaceContainerHigh">#F0E6F0</color>
 
     <!-- Dark Theme Colors -->
     <color name="dark_primary">#D0BCFF</color>
@@ -51,6 +52,7 @@
     <color name="dark_onSurfaceVariant">#CAC4D0</color>
     <color name="dark_outline">#938F99</color>
     <color name="dark_surfaceContainerHighest">#36343B</color>
+    <color name="dark_surfaceContainerHigh">#2B2930</color>
 
     <color name="ic_launcher_background">#6750A4</color>
 
