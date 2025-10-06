@@ -18,7 +18,7 @@
         android:padding="12dp"
         android:text="This is a sent message."
         android:textColor="?attr/colorOnPrimary"
-        android:textSize="12sp"
+        android:textSize="14sp"
         android:maxWidth="280dp" />
 
 </LinearLayout>

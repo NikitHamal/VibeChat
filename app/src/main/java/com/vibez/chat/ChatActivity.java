@@ -1,5 +1,6 @@
 package com.vibez.chat;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -10,6 +11,7 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -42,6 +44,10 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Apply saved theme before setting content view
+        applySavedTheme();
+
         setContentView(R.layout.activity_chat);
 
         // Initialize views
@@ -168,6 +174,24 @@ public class ChatActivity extends AppCompatActivity {
             chip.setText(suggestion);
             chip.setOnClickListener(v -> sendMessageFromChip(chip.getText().toString()));
             suggestionChipContainer.addView(chip);
+        }
+    }
+
+    private void applySavedTheme() {
+        SharedPreferences prefs = getSharedPreferences("VibeZPrefs", MODE_PRIVATE);
+        String themeValue = prefs.getString("theme", "system");
+
+        switch (themeValue) {
+            case "light":
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+                break;
+            case "dark":
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+                break;
+            case "system":
+            default:
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+                break;
         }
     }
 }

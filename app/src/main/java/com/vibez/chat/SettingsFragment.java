@@ -47,6 +47,9 @@ public class SettingsFragment extends PreferenceFragmentCompat {
                     editor.putString("theme", themeValue);
                     editor.apply();
 
+                    // Recreate the activity to apply theme changes immediately
+                    requireActivity().recreate();
+
                     dialog.dismiss();
                 })
                 .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())

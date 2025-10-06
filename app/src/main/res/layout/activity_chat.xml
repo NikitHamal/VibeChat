@@ -31,12 +31,12 @@
 
                 <TextView
                     android:id="@+id/stranger_flag"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:padding="4dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="8dp"
                     android:background="@drawable/bg_flag_container"
                     android:gravity="center"
-                    android:textSize="20sp"
+                    android:textSize="24sp"
                     tools:text="🇨🇦" />
 
                 <LinearLayout
@@ -70,6 +70,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/next"
+                    android:textSize="12sp"
                     android:layout_marginEnd="16dp"/>
             </LinearLayout>
         </com.google.android.material.appbar.MaterialToolbar>

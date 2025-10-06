@@ -11,6 +11,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
@@ -36,6 +37,10 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Apply saved theme before setting content view
+        applySavedTheme();
+
         setContentView(R.layout.activity_home);
 
         // Initialize views
@@ -130,5 +135,23 @@ public class HomeActivity extends AppCompatActivity {
         editor.putString(KEY_GENDER, gender);
         editor.putString(KEY_AGE, age);
         editor.apply();
+    }
+
+    private void applySavedTheme() {
+        SharedPreferences prefs = getSharedPreferences("VibeZPrefs", MODE_PRIVATE);
+        String themeValue = prefs.getString("theme", "system");
+
+        switch (themeValue) {
+            case "light":
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+                break;
+            case "dark":
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+                break;
+            case "system":
+            default:
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+                break;
+        }
     }
 }
