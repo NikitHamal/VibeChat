@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6750A4">
+    <meta name="description" content="VibeZ - Connect with strangers around the world">
+    <title>VibeZ - Random Chat</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400&display=swap" rel="stylesheet">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/screens.css">
+</head>
+<body class="light-theme">
+    
+    <!-- App Container -->
+    <div id="app">
+        
+        <!-- Splash Screen -->
+        <div id="splash-screen" class="screen active">
+            <div class="splash-content">
+                <div class="splash-icon">
+                    <span class="material-symbols-outlined">chat_bubble</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auth Screen -->
+        <div id="auth-screen" class="screen">
+            <div class="auth-content">
+                <div class="auth-welcome">
+                    <img src="../app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png" alt="VibeZ Logo" class="auth-logo" onerror="this.style.display='none'">
+                    <h1 class="auth-title">Welcome to VibeZ</h1>
+                    <p class="auth-subtitle">Connect with strangers around the world</p>
+                    
+                    <div class="auth-features">
+                        <div class="feature-item">
+                            <span class="feature-dot"></span>
+                            <span>Anonymous & Safe</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-dot"></span>
+                            <span>Instant Connections</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-dot"></span>
+                            <span>Fun & Friendly</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="auth-options">
+                    <button id="google-signin-btn" class="btn-outlined">
+                        <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="#4285F4" d="M22.56,12.25c0,-0.78 -0.07,-1.53 -0.2,-2.25H12v4.26h5.92c-0.26,1.37 -1.04,2.53 -2.21,3.31v2.77h3.57c2.08,-1.92 3.28,-4.74 3.28,-8.09z"/>
+                            <path fill="#34A853" d="M12,23c2.97,0 5.46,-0.98 7.28,-2.66l-3.57,-2.77c-0.98,0.66 -2.23,1.06 -3.71,1.06 -2.86,0 -5.29,-1.93 -6.16,-4.53H2.18v2.84C3.99,20.53 7.7,23 12,23z"/>
+                            <path fill="#FBBC05" d="M5.84,14.09c-0.22,-0.66 -0.35,-1.36 -0.35,-2.09s0.13,-1.43 0.35,-2.09V7.07H2.18C1.43,8.55 1,10.22 1,12s0.43,3.45 1.18,4.93l2.85,-2.22 0.81,-0.62z"/>
+                            <path fill="#EA4335" d="M12,5.38c1.62,0 3.06,0.56 4.21,1.64l3.15,-3.15C17.45,2.09 14.97,1 12,1 7.7,1 3.99,3.47 2.18,7.07l3.66,2.84c0.87,-2.6 3.3,-4.53 6.16,-4.53z"/>
+                        </svg>
+                        Continue with Google
+                    </button>
+
+                    <div class="divider">
+                        <span>or</span>
+                    </div>
+
+                    <button id="guest-continue-btn" class="btn-filled">
+                        <span class="material-symbols-outlined">person</span>
+                        Continue as Guest
+                    </button>
+
+                    <p class="privacy-notice">By continuing, you agree to our Terms of Service and Privacy Policy</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Home Screen -->
+        <div id="home-screen" class="screen">
+            <div class="toolbar">
+                <h1 class="toolbar-title">VibeZ</h1>
+                <button id="settings-btn" class="icon-btn">
+                    <span class="material-symbols-outlined">settings</span>
+                </button>
+            </div>
+
+            <div class="home-content">
+                <h2 class="home-title">Find a Stranger</h2>
+                <p class="home-subtitle">Enter your details to start chatting.</p>
+
+                <div class="input-container">
+                    <span class="material-symbols-outlined">person</span>
+                    <input type="text" id="username-input" placeholder="Username" class="text-input">
+                </div>
+
+                <div class="input-container clickable" id="gender-container">
+                    <span class="material-symbols-outlined">account_circle</span>
+                    <span id="gender-display" class="input-text">Gender</span>
+                </div>
+
+                <div class="input-container">
+                    <span class="material-symbols-outlined">cake</span>
+                    <input type="number" id="age-input" placeholder="Age" class="text-input">
+                </div>
+
+                <button id="start-chat-btn" class="btn-primary">
+                    <span class="material-symbols-outlined">chat</span>
+                    Start Chat
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Screen -->
+        <div id="chat-screen" class="screen">
+            <div class="chat-toolbar">
+                <button id="chat-back-btn" class="icon-btn">
+                    <span class="material-symbols-outlined">arrow_back</span>
+                </button>
+                <div class="stranger-info">
+                    <div class="stranger-flag">🌍</div>
+                    <div class="stranger-details">
+                        <h3 id="stranger-name">Stranger</h3>
+                        <p id="stranger-info">Connecting...</p>
+                    </div>
+                </div>
+                <button id="next-btn" class="btn-tonal">Next</button>
+            </div>
+
+            <div id="messages-container" class="messages-container"></div>
+
+            <div id="suggestion-chips-container" class="suggestion-chips"></div>
+
+            <div class="chat-input-container">
+                <input type="text" id="message-input" placeholder="Type a message..." class="message-input">
+                <button id="send-btn" class="btn-icon-filled">
+                    <span class="material-symbols-outlined">send</span>
+                </button>
+            </div>
+
+            <div id="loading-overlay" class="loading-overlay">
+                <div class="loader"></div>
+                <p>Connecting you to a stranger...</p>
+            </div>
+        </div>
+
+        <!-- Settings Screen -->
+        <div id="settings-screen" class="screen">
+            <div class="toolbar">
+                <button id="settings-back-btn" class="icon-btn">
+                    <span class="material-symbols-outlined">arrow_back</span>
+                </button>
+                <h1 class="toolbar-title">Settings</h1>
+            </div>
+
+            <div class="settings-content">
+                <!-- Profile Header -->
+                <div id="profile-header-card" class="profile-card">
+                    <div class="profile-avatar">
+                        <span class="material-symbols-outlined">person</span>
+                    </div>
+                    <div class="profile-info">
+                        <h3>Guest User</h3>
+                        <p id="user-mode-text">Anonymous Mode</p>
+                    </div>
+                </div>
+
+                <!-- Account Section -->
+                <div id="account-section">
+                    <h4 class="section-header">ACCOUNT</h4>
+                    <div class="settings-card">
+                        <div class="setting-item" id="profile-setting">
+                            <div class="setting-icon primary">
+                                <span class="material-symbols-outlined">person</span>
+                            </div>
+                            <div class="setting-text">
+                                <h5>Profile</h5>
+                                <p>View and edit your profile</p>
+                            </div>
+                            <span class="material-symbols-outlined">chevron_right</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Appearance Section -->
+                <h4 class="section-header">APPEARANCE</h4>
+                <div class="settings-card">
+                    <div class="setting-item" id="theme-setting">
+                        <div class="setting-icon secondary">
+                            <span class="material-symbols-outlined">brightness_auto</span>
+                        </div>
+                        <div class="setting-text">
+                            <h5>Theme</h5>
+                            <p id="theme-value">System Default</p>
+                        </div>
+                        <span class="material-symbols-outlined">chevron_right</span>
+                    </div>
+                </div>
+
+                <!-- About Section -->
+                <h4 class="section-header">ABOUT</h4>
+                <div class="settings-card">
+                    <div class="setting-item">
+                        <div class="setting-icon tertiary">
+                            <span class="material-symbols-outlined">info</span>
+                        </div>
+                        <div class="setting-text">
+                            <h5>App Version</h5>
+                            <p>1.0.0</p>
+                        </div>
+                    </div>
+                    <div class="setting-divider"></div>
+                    <div class="setting-item">
+                        <div class="setting-icon secondary">
+                            <span class="material-symbols-outlined">person</span>
+                        </div>
+                        <div class="setting-text">
+                            <h5>Developer</h5>
+                            <p>Nikit Hamal</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Screen -->
+        <div id="profile-screen" class="screen">
+            <div class="toolbar">
+                <button id="profile-back-btn" class="icon-btn">
+                    <span class="material-symbols-outlined">arrow_back</span>
+                </button>
+                <h1 class="toolbar-title">Profile</h1>
+            </div>
+
+            <div class="profile-content">
+                <div class="profile-header">
+                    <div class="profile-avatar-large">
+                        <span class="material-symbols-outlined">person</span>
+                    </div>
+                    <p class="profile-label">Your Profile</p>
+                </div>
+
+                <div class="profile-info-card">
+                    <!-- Name Field -->
+                    <div class="profile-field">
+                        <label class="field-label">NAME</label>
+                        <div class="field-content">
+                            <span class="material-symbols-outlined">person</span>
+                            <span id="name-display" class="field-value">Guest User</span>
+                            <input type="text" id="name-edit" class="field-input" style="display:none;">
+                        </div>
+                    </div>
+
+                    <div class="field-divider"></div>
+
+                    <!-- Gender Field -->
+                    <div class="profile-field">
+                        <label class="field-label">GENDER</label>
+                        <div class="field-content">
+                            <span class="material-symbols-outlined">account_circle</span>
+                            <span id="gender-display-profile" class="field-value">Not specified</span>
+                            <span id="gender-edit" class="field-value editable" style="display:none;">Not specified</span>
+                        </div>
+                    </div>
+
+                    <div class="field-divider"></div>
+
+                    <!-- Age Field -->
+                    <div class="profile-field">
+                        <label class="field-label">AGE</label>
+                        <div class="field-content">
+                            <span class="material-symbols-outlined">cake</span>
+                            <span id="age-display-profile" class="field-value">Not specified</span>
+                            <input type="number" id="age-edit" class="field-input" style="display:none;">
+                        </div>
+                    </div>
+
+                    <div class="field-divider"></div>
+
+                    <!-- Country Field -->
+                    <div class="profile-field">
+                        <label class="field-label">COUNTRY</label>
+                        <div class="field-content">
+                            <span class="material-symbols-outlined">flag</span>
+                            <span id="country-display-profile" class="field-value">Not specified</span>
+                            <input type="text" id="country-edit" class="field-input" style="display:none;">
+                        </div>
+                    </div>
+                </div>
+
+                <p class="profile-note">Your profile information is used to personalize your chat experience</p>
+            </div>
+
+            <button id="profile-fab" class="fab">
+                <span class="material-symbols-outlined">edit</span>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Dialogs -->
+    <div id="dialog-overlay" class="dialog-overlay">
+        <div id="dialog-container" class="dialog"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
