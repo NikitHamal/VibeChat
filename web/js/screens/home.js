@@ -1,4 +1,6 @@
 // Home Screen Controller
+import { auth, database } from '../firebase.js';
+import { ref, set, get, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import Storage from '../storage.js';
 
 export default class HomeScreen {
@@ -29,29 +31,55 @@ export default class HomeScreen {
     }
 
     onEnter(data) {
-        // Load saved user data
-        this.loadUserData();
+        if (data && data.user) {
+            this.currentUser = data.user;
+            this.loadUserData();
+        } else {
+            // Handle case where user is not passed, maybe navigate to auth
+            this.app.navigate('auth');
+        }
     }
 
     onExit() {
         // Clean up if needed
     }
 
-    loadUserData() {
-        const profile = Storage.getUserProfile();
-        
-        if (profile.username) {
-            this.usernameInput.value = profile.username;
+    async loadUserData() {
+        const userRef = ref(database, 'users/' + this.currentUser.uid);
+        const snapshot = await get(userRef);
+        const userExists = snapshot.exists();
+        const userData = userExists ? snapshot.val() : {};
+
+        // Pre-fill with Google data for new users
+        if (this.currentUser.providerData[0].providerId === 'google.com' && !userExists) {
+            userData.name = this.currentUser.displayName;
+            userData.email = this.currentUser.email;
+            userData.photoURL = this.currentUser.photoURL;
         }
-        
-        if (profile.gender) {
-            this.selectedGender = profile.gender;
-            this.genderDisplay.textContent = profile.gender;
+
+        // Populate form
+        this.usernameInput.value = userData.name || '';
+        if (userData.gender) {
+            this.selectedGender = userData.gender;
+            this.genderDisplay.textContent = userData.gender;
             this.genderDisplay.classList.add('filled');
         }
+        this.ageInput.value = userData.age || '';
+
+        // Get country if not present
+        if (!userData.country) {
+            try {
+                const response = await fetch('https://ipapi.co/json/');
+                userData.country = (await response.json()).country_code || 'Unknown';
+            } catch (error) {
+                console.error('Error fetching country:', error);
+                userData.country = 'Unknown';
+            }
+        }
         
-        if (profile.age) {
-            this.ageInput.value = profile.age;
+        // Save initial data if it's a new user
+        if (!userExists) {
+            await set(userRef, userData);
         }
     }
 
@@ -65,21 +93,12 @@ export default class HomeScreen {
         this.app.showDialog({
             title: 'Gender',
             options: genderOptions,
-            buttons: [
-                {
-                    label: 'Cancel',
-                    onClick: () => {}
-                }
-            ],
+            buttons: [{ label: 'Cancel', onClick: () => {} }],
             onSelect: (option) => {
                 this.selectedGender = option.value;
                 this.genderDisplay.textContent = option.value;
                 this.genderDisplay.classList.add('filled');
-                
-                // Auto-close after selection
-                setTimeout(() => {
-                    this.app.hideDialog();
-                }, 200);
+                setTimeout(() => this.app.hideDialog(), 200);
             }
         });
     }
@@ -89,58 +108,32 @@ export default class HomeScreen {
     }
 
     async startChat() {
-        const username = this.usernameInput.value.trim();
+        const name = this.usernameInput.value.trim();
         const age = this.ageInput.value.trim();
+        const gender = this.selectedGender;
 
-        // Validation
-        if (!username) {
-            this.showError('Please enter a username');
+        if (!name || !age || !gender) {
+            this.app.showToast('Please fill all the details');
             return;
         }
 
-        if (!this.selectedGender) {
-            this.showError('Please select a gender');
-            return;
-        }
-
-        // Save user data
-        Storage.setUserProfile({
-            username,
-            gender: this.selectedGender,
-            age,
-            country: await this.getUserCountry()
+        // Save user data to Firebase
+        const userRef = ref(database, 'users/' + this.currentUser.uid);
+        await update(userRef, {
+            name,
+            age: parseInt(age),
+            gender
         });
 
         // Navigate to chat
-        this.app.navigate('chat', {
-            username,
-            gender: this.selectedGender,
-            age
-        });
-    }
-
-    async getUserCountry() {
-        try {
-            const response = await fetch('https://ipapi.co/json/');
-            const data = await response.json();
-            return data.country_code || 'Unknown';
-        } catch (error) {
-            console.error('Error fetching country:', error);
-            return 'Unknown';
-        }
+        this.app.navigate('chat');
     }
 
     showError(message) {
         this.app.showDialog({
             title: 'Error',
             message,
-            buttons: [
-                {
-                    label: 'OK',
-                    primary: true,
-                    onClick: () => {}
-                }
-            ]
+            buttons: [{ label: 'OK', primary: true, onClick: () => {} }]
         });
     }
 }

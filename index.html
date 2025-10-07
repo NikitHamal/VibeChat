@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#6750A4">
     <meta name="description" content="VibeZ - Connect with strangers around the world">
     <title>VibeZ - Random Chat</title>
+    <link rel="icon" href="app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png" type="image/png">
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,9 +27,7 @@
         <!-- Splash Screen -->
         <div id="splash-screen" class="screen active">
             <div class="splash-content">
-                <div class="splash-icon">
-                    <span class="material-symbols-outlined">chat_bubble</span>
-                </div>
+                <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png" alt="VibeZ Logo" class="splash-icon">
             </div>
         </div>
 
@@ -36,7 +35,7 @@
         <div id="auth-screen" class="screen">
             <div class="auth-content">
                 <div class="auth-welcome">
-                    <img src="../app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png" alt="VibeZ Logo" class="auth-logo" onerror="this.style.display='none'">
+                    <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png" alt="VibeZ Logo" class="auth-logo" onerror="this.style.display='none'">
                     <h1 class="auth-title">Welcome to VibeZ</h1>
                     <p class="auth-subtitle">Connect with strangers around the world</p>
                     
@@ -132,20 +131,38 @@
                 <button id="next-btn" class="btn-tonal">Next</button>
             </div>
 
-            <div id="messages-container" class="messages-container"></div>
+            <div id="messages-container" class="messages-container">
+                <div class="typing-indicator-container" style="display: none;">
+                    <div class="typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            </div>
 
             <div id="suggestion-chips-container" class="suggestion-chips"></div>
 
             <div class="chat-input-container">
-                <input type="text" id="message-input" placeholder="Type a message..." class="message-input">
-                <button id="send-btn" class="btn-icon-filled">
-                    <span class="material-symbols-outlined">send</span>
-                </button>
+                <div id="reply-preview-container" class="reply-preview" style="display: none;">
+                    <div class="reply-preview-content">
+                        <p class="reply-preview-name">Replying to Stranger</p>
+                        <p class="reply-preview-text">This is the message being replied to...</p>
+                    </div>
+                    <button id="cancel-reply-btn" class="icon-btn">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                <div class="main-input-area">
+                    <input type="text" id="message-input" placeholder="Type a message..." class="message-input">
+                    <button id="send-btn" class="btn-icon-filled">
+                        <span class="material-symbols-outlined">send</span>
+                    </button>
+                </div>
             </div>
 
             <div id="loading-overlay" class="loading-overlay">
                 <div class="loader"></div>
                 <p>Connecting you to a stranger...</p>
+                <button id="cancel-matchmaking-btn" class="btn-outlined">Cancel</button>
             </div>
         </div>
 
@@ -224,6 +241,16 @@
                             <p>Nikit Hamal</p>
                         </div>
                     </div>
+                    <div class="setting-divider"></div>
+                     <div class="setting-item" id="sign-out-setting">
+                        <div class="setting-icon error">
+                            <span class="material-symbols-outlined">logout</span>
+                        </div>
+                        <div class="setting-text">
+                            <h5>Sign Out</h5>
+                            <p>End your current session</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -252,7 +279,7 @@
                         <div class="field-content">
                             <span class="material-symbols-outlined">person</span>
                             <span id="name-display" class="field-value">Guest User</span>
-                            <input type="text" id="name-edit" class="field-input" style="display:none;">
+                            <input type="text" id="name-edit" class="field-input">
                         </div>
                     </div>
 
@@ -264,7 +291,7 @@
                         <div class="field-content">
                             <span class="material-symbols-outlined">account_circle</span>
                             <span id="gender-display-profile" class="field-value">Not specified</span>
-                            <span id="gender-edit" class="field-value editable" style="display:none;">Not specified</span>
+                            <span id="gender-edit" class="field-value editable">Not specified</span>
                         </div>
                     </div>
 
@@ -276,7 +303,7 @@
                         <div class="field-content">
                             <span class="material-symbols-outlined">cake</span>
                             <span id="age-display-profile" class="field-value">Not specified</span>
-                            <input type="number" id="age-edit" class="field-input" style="display:none;">
+                            <input type="number" id="age-edit" class="field-input">
                         </div>
                     </div>
 
@@ -288,7 +315,7 @@
                         <div class="field-content">
                             <span class="material-symbols-outlined">flag</span>
                             <span id="country-display-profile" class="field-value">Not specified</span>
-                            <input type="text" id="country-edit" class="field-input" style="display:none;">
+                            <input type="text" id="country-edit" class="field-input">
                         </div>
                     </div>
                 </div>
@@ -306,6 +333,16 @@
     <!-- Dialogs -->
     <div id="dialog-overlay" class="dialog-overlay">
         <div id="dialog-container" class="dialog"></div>
+    </div>
+
+    <!-- Reaction Picker -->
+    <div id="reaction-picker" class="reaction-picker">
+        <div class="reaction-emoji" data-reaction="❤️">❤️</div>
+        <div class="reaction-emoji" data-reaction="😂">😂</div>
+        <div class="reaction-emoji" data-reaction="😮">😮</div>
+        <div class="reaction-emoji" data-reaction="😢">😢</div>
+        <div class="reaction-emoji" data-reaction="😠">😠</div>
+        <div class="reaction-emoji" data-reaction="👍">👍</div>
     </div>
 
     <!-- Scripts -->

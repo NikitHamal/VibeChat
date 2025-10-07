@@ -1,5 +1,7 @@
 // Main App Controller
 import Storage from './storage.js';
+import { auth } from './firebase.js';
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import SplashScreen from './screens/splash.js';
 import AuthScreen from './screens/auth.js';
 import HomeScreen from './screens/home.js';
@@ -29,10 +31,41 @@ class App {
         // Start with splash screen
         this.navigate('splash');
 
+        this.authInitialized = false;
+        this.splashFinished = false;
+        this.user = null;
+
+        // Listen for auth state changes
+        onAuthStateChanged(auth, (user) => {
+            this.user = user;
+            this.authInitialized = true;
+            if (this.splashFinished) {
+                this.navigateAfterSplash();
+            }
+        });
+
         // Auto-navigate after splash
         setTimeout(() => {
-            this.navigate('auth');
+            this.splashFinished = true;
+            if (this.authInitialized) {
+                this.navigateAfterSplash();
+            }
         }, 1500);
+    }
+
+    navigateAfterSplash() {
+        // Do not navigate away if a dialog is open (e.g. user is leaving chat)
+        if (document.getElementById('dialog-overlay').classList.contains('active')) {
+            return;
+        }
+
+        const targetScreen = this.user ? 'home' : 'auth';
+        // Avoid re-navigating to the same screen
+        if (this.currentScreen && this.currentScreen.element.id.startsWith(targetScreen)) {
+            return;
+        }
+
+        this.navigate(targetScreen, { user: this.user });
     }
 
     registerScreen(name, screen) {
@@ -170,6 +203,24 @@ class App {
         setTimeout(() => {
             document.getElementById('dialog-container').innerHTML = '';
         }, 300);
+    }
+
+    showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add('show');
+        }, 10);
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                toast.remove();
+            }, 500);
+        }, 3000);
     }
 }
 

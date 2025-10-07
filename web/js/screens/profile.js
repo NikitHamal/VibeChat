@@ -1,5 +1,6 @@
 // Profile Screen Controller
-import Storage from '../storage.js';
+import { auth, database } from '../firebase.js';
+import { ref, get, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 export default class ProfileScreen {
     constructor(app) {
@@ -37,26 +38,33 @@ export default class ProfileScreen {
     }
 
     onEnter(data) {
+        this.currentUser = auth.currentUser;
+        if (!this.currentUser || this.currentUser.isAnonymous) {
+            this.app.navigate('settings'); // Should not be here if anonymous
+            return;
+        }
         this.loadProfile();
     }
 
     onExit() {
         if (this.isEditMode) {
-            this.exitEditMode();
+            this.exitEditMode(false); // Don't reload data on exit
         }
     }
 
-    loadProfile() {
-        const profile = Storage.getUserProfile();
+    async loadProfile() {
+        const userRef = ref(database, 'users/' + this.currentUser.uid);
+        const snapshot = await get(userRef);
+        const profile = snapshot.val() || {};
         
         // Update display elements
-        this.nameDisplay.textContent = profile.username || 'Not specified';
+        this.nameDisplay.textContent = profile.name || 'Not specified';
         this.genderDisplayProfile.textContent = profile.gender || 'Not specified';
         this.ageDisplayProfile.textContent = profile.age || 'Not specified';
         this.countryDisplayProfile.textContent = profile.country || 'Not specified';
         
         // Update edit elements
-        this.nameEdit.value = profile.username || '';
+        this.nameEdit.value = profile.name || '';
         this.ageEdit.value = profile.age || '';
         this.countryEdit.value = profile.country || '';
         this.genderEdit.textContent = profile.gender || 'Not specified';
@@ -72,73 +80,41 @@ export default class ProfileScreen {
 
     enterEditMode() {
         this.isEditMode = true;
-        
-        // Hide display, show edit
-        this.nameDisplay.style.display = 'none';
-        this.nameEdit.style.display = 'block';
-        
-        this.genderDisplayProfile.style.display = 'none';
-        this.genderEdit.style.display = 'block';
-        
-        this.ageDisplayProfile.style.display = 'none';
-        this.ageEdit.style.display = 'block';
-        
-        this.countryDisplayProfile.style.display = 'none';
-        this.countryEdit.style.display = 'block';
-        
-        // Change FAB icon
+        this.element.classList.add('edit-mode');
         this.fab.querySelector('.material-symbols-outlined').textContent = 'check';
-        
-        // Focus name field
         this.nameEdit.focus();
     }
 
-    saveProfile() {
+    async saveProfile() {
         const name = this.nameEdit.value.trim();
         const age = this.ageEdit.value.trim();
         const country = this.countryEdit.value.trim();
         const gender = this.genderEdit.textContent.trim();
         
-        // Validation
         if (!name) {
-            this.showError('Name cannot be empty');
+            this.app.showToast('Name cannot be empty');
             return;
         }
         
-        // Save to storage
-        Storage.setUserProfile({
-            username: name,
+        const userRef = ref(database, 'users/' + this.currentUser.uid);
+        await update(userRef, {
+            name,
             gender: gender === 'Not specified' ? '' : gender,
-            age,
+            age: age ? parseInt(age) : null,
             country
         });
         
-        // Update display
-        this.loadProfile();
-        this.exitEditMode();
-        
-        // Show success message
-        this.showToast('Profile updated successfully');
+        this.exitEditMode(true); // Reload data after saving
+        this.app.showToast('Profile updated successfully');
     }
 
-    exitEditMode() {
+    exitEditMode(reload = true) {
         this.isEditMode = false;
-        
-        // Show display, hide edit
-        this.nameDisplay.style.display = 'block';
-        this.nameEdit.style.display = 'none';
-        
-        this.genderDisplayProfile.style.display = 'block';
-        this.genderEdit.style.display = 'none';
-        
-        this.ageDisplayProfile.style.display = 'block';
-        this.ageEdit.style.display = 'none';
-        
-        this.countryDisplayProfile.style.display = 'block';
-        this.countryEdit.style.display = 'none';
-        
-        // Change FAB icon back
+        this.element.classList.remove('edit-mode');
         this.fab.querySelector('.material-symbols-outlined').textContent = 'edit';
+        if (reload) {
+            this.loadProfile();
+        }
     }
 
     showGenderDialog() {
@@ -152,26 +128,16 @@ export default class ProfileScreen {
         this.app.showDialog({
             title: 'Select Gender',
             options,
-            buttons: [
-                {
-                    label: 'Cancel',
-                    onClick: () => {}
-                }
-            ],
+            buttons: [{ label: 'Cancel', onClick: () => {} }],
             onSelect: (option) => {
                 this.genderEdit.textContent = option.value;
-                
-                // Auto-close after selection
-                setTimeout(() => {
-                    this.app.hideDialog();
-                }, 200);
+                setTimeout(() => this.app.hideDialog(), 200);
             }
         });
     }
 
     handleBack() {
         if (this.isEditMode) {
-            // Show unsaved changes dialog
             this.app.showDialog({
                 title: 'Unsaved Changes',
                 message: 'Do you want to save your changes?',
@@ -179,16 +145,15 @@ export default class ProfileScreen {
                     {
                         label: 'Discard',
                         onClick: () => {
-                            this.loadProfile();
-                            this.exitEditMode();
+                            this.exitEditMode(true);
                             this.app.navigate('settings');
                         }
                     },
                     {
                         label: 'Save',
                         primary: true,
-                        onClick: () => {
-                            this.saveProfile();
+                        onClick: async () => {
+                            await this.saveProfile();
                             this.app.navigate('settings');
                         }
                     }
@@ -197,42 +162,5 @@ export default class ProfileScreen {
         } else {
             this.app.navigate('settings');
         }
-    }
-
-    showError(message) {
-        this.app.showDialog({
-            title: 'Error',
-            message,
-            buttons: [
-                {
-                    label: 'OK',
-                    primary: true,
-                    onClick: () => {}
-                }
-            ]
-        });
-    }
-
-    showToast(message) {
-        const toast = document.createElement('div');
-        toast.style.cssText = `
-            position: fixed;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: var(--surface-container-highest);
-            color: var(--on-surface);
-            padding: 12px 24px;
-            border-radius: 8px;
-            box-shadow: var(--elevation-3);
-            z-index: 1000;
-            font-size: 14px;
-        `;
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.remove();
-        }, 3000);
     }
 }
