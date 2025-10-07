@@ -37,6 +37,10 @@
             android:exported="false"
             android:parentActivityName=".HomeActivity" />
         <activity
+            android:name=".ProfileActivity"
+            android:exported="false"
+            android:parentActivityName=".SettingsActivity" />
+        <activity
             android:name=".CrashActivity"
             android:exported="false" />
     </application>

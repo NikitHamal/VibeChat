@@ -1,5 +1,6 @@
 package com.vibez.chat;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.LinearLayout;
@@ -17,6 +18,7 @@ public class SettingsActivity extends AppCompatActivity {
     private SharedPreferences sharedPreferences;
     private TextView themeValue;
     private LinearLayout themeSetting;
+    private LinearLayout profileSetting;
 
     private CharSequence[] themeEntries;
     private CharSequence[] themeValues;
@@ -35,6 +37,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         themeValue = findViewById(R.id.theme_value);
         themeSetting = findViewById(R.id.theme_setting);
+        profileSetting = findViewById(R.id.profile_setting);
 
         themeEntries = getResources().getTextArray(R.array.theme_entries);
         themeValues = getResources().getTextArray(R.array.theme_values);
@@ -42,6 +45,10 @@ public class SettingsActivity extends AppCompatActivity {
         updateThemeDisplay();
 
         themeSetting.setOnClickListener(v -> showThemeDialog());
+        profileSetting.setOnClickListener(v -> {
+            Intent intent = new Intent(SettingsActivity.this, ProfileActivity.class);
+            startActivity(intent);
+        });
     }
 
     private void showThemeDialog() {
