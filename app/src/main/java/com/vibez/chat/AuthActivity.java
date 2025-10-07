@@ -92,7 +92,7 @@ public class AuthActivity extends AppCompatActivity {
                             navigateToHome();
                         }
                     } else {
-                        Toast.makeText(this, "Authentication Failed.", Toast.SHORT).show();
+                        Toast.makeText(this, "Authentication Failed.", Toast.LENGTH_SHORT).show();
                     }
                 });
     }
