@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -22,8 +21,6 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.MutableData;
-import com.google.firebase.database.Transaction;
 import com.google.firebase.database.ValueEventListener;
 
 public class HomeActivity extends AppCompatActivity {
@@ -31,15 +28,11 @@ public class HomeActivity extends AppCompatActivity {
     private MaterialToolbar toolbar;
     private EditText usernameEditText, ageEditText;
     private TextView genderTextView;
-    private MaterialButton startChatButton, cancelChatButton;
+    private MaterialButton startChatButton;
 
     private FirebaseAuth mAuth;
     private DatabaseReference mUsersRef;
-    private DatabaseReference mQueueRef;
     private FirebaseUser currentUser;
-
-    private ValueEventListener queueListener;
-    private boolean isSearching = false;
 
     private final String[] genders = {"Male", "Female", "Other"};
     private int selectedGenderIndex = -1;
@@ -56,24 +49,6 @@ public class HomeActivity extends AppCompatActivity {
         setupListeners();
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // Check if the user was searching and restore the UI state
-        mQueueRef.child(currentUser.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                isSearching = snapshot.exists();
-                updateUiForSearch(isSearching);
-                if (isSearching) {
-                    listenForMatch();
-                }
-            }
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
-        });
-    }
-
     private void initializeFirebase() {
         mAuth = FirebaseAuth.getInstance();
         currentUser = mAuth.getCurrentUser();
@@ -83,7 +58,6 @@ public class HomeActivity extends AppCompatActivity {
             return;
         }
         mUsersRef = FirebaseDatabase.getInstance().getReference("users");
-        mQueueRef = FirebaseDatabase.getInstance().getReference("queue");
     }
 
     private void initializeViews() {
@@ -92,13 +66,11 @@ public class HomeActivity extends AppCompatActivity {
         ageEditText = findViewById(R.id.age_edit_text);
         genderTextView = findViewById(R.id.gender_text_view);
         startChatButton = findViewById(R.id.start_chat_button);
-        cancelChatButton = findViewById(R.id.cancel_chat_button);
     }
 
     private void setupListeners() {
         genderTextView.setOnClickListener(v -> showGenderSelectionDialog());
-        startChatButton.setOnClickListener(v -> startSearch());
-        cancelChatButton.setOnClickListener(v -> cancelSearch());
+        startChatButton.setOnClickListener(v -> startChat());
     }
 
     @Override
@@ -158,7 +130,7 @@ public class HomeActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void startSearch() {
+    private void startChat() {
         String username = usernameEditText.getText().toString().trim();
         String ageStr = ageEditText.getText().toString().trim();
         String gender = genderTextView.getText().toString().trim();
@@ -170,109 +142,8 @@ public class HomeActivity extends AppCompatActivity {
 
         saveUserDataToFirebase(username, gender, Integer.parseInt(ageStr));
 
-        // Add user to the queue
-        mQueueRef.child(currentUser.getUid()).setValue(true).addOnSuccessListener(aVoid -> {
-            isSearching = true;
-            updateUiForSearch(true);
-            findAndClaimMatch();
-            listenForMatch();
-        });
-    }
-
-    private void cancelSearch() {
-        isSearching = false;
-        updateUiForSearch(false);
-        mQueueRef.child(currentUser.getUid()).removeValue();
-        if (queueListener != null) {
-            mQueueRef.child(currentUser.getUid()).removeEventListener(queueListener);
-        }
-    }
-
-    private void updateUiForSearch(boolean isSearching) {
-        if (isSearching) {
-            startChatButton.setText("Searching...");
-            startChatButton.setEnabled(false);
-            cancelChatButton.setVisibility(View.VISIBLE);
-        } else {
-            startChatButton.setText(R.string.start_chat);
-            startChatButton.setEnabled(true);
-            cancelChatButton.setVisibility(View.GONE);
-        }
-    }
-
-    private void listenForMatch() {
-        queueListener = mQueueRef.child(currentUser.getUid()).addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (snapshot.exists() && snapshot.hasChild("matchedWith")) {
-                    String chatRoomId = snapshot.child("chatRoomId").getValue(String.class);
-                    if (chatRoomId != null) {
-                        mQueueRef.child(currentUser.getUid()).removeEventListener(this);
-                        navigateToChat(chatRoomId);
-                    }
-                }
-            }
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
-        });
-    }
-
-    private void findAndClaimMatch() {
-        mQueueRef.orderByValue().equalTo(true).limitToFirst(10)
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                for (DataSnapshot userSnapshot : snapshot.getChildren()) {
-                    String otherUserId = userSnapshot.getKey();
-                    if (isSearching && otherUserId != null && !otherUserId.equals(currentUser.getUid())) {
-                        attemptToClaim(otherUserId);
-                        break; // Attempt to claim the first available user
-                    }
-                }
-            }
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
-        });
-    }
-
-    private void attemptToClaim(String otherUserId) {
-        DatabaseReference otherUserRef = mQueueRef.child(otherUserId);
-        otherUserRef.runTransaction(new Transaction.Handler() {
-            @NonNull
-            @Override
-            public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                if (mutableData.getValue() instanceof Boolean && (Boolean) mutableData.getValue()) {
-                    String chatRoomId = mUsersRef.push().getKey();
-                    mutableData.child("matchedWith").setValue(currentUser.getUid());
-                    mutableData.child("chatRoomId").setValue(chatRoomId);
-                    return Transaction.success(mutableData);
-                }
-                // The user is not available (already being claimed or left)
-                return Transaction.abort();
-            }
-
-            @Override
-            public void onComplete(DatabaseError error, boolean committed, DataSnapshot currentData) {
-                if (committed && error == null) {
-                    // Successfully claimed the other user. Now update our own status.
-                    String chatRoomId = currentData.child("chatRoomId").getValue(String.class);
-                    mQueueRef.child(currentUser.getUid()).child("matchedWith").setValue(otherUserId);
-                    mQueueRef.child(currentUser.getUid()).child("chatRoomId").setValue(chatRoomId);
-                } else {
-                    // Failed to claim, look for another match
-                    findAndClaimMatch();
-                }
-            }
-        });
-    }
-
-    private void navigateToChat(String chatRoomId) {
-        isSearching = false;
-        updateUiForSearch(false);
-        mQueueRef.child(currentUser.getUid()).removeValue();
-
-        Intent intent = new Intent(this, ChatActivity.class);
-        intent.putExtra("CHAT_ROOM_ID", chatRoomId);
+        // Directly navigate to ChatActivity
+        Intent intent = new Intent(HomeActivity.this, ChatActivity.class);
         startActivity(intent);
     }
 
@@ -282,23 +153,6 @@ public class HomeActivity extends AppCompatActivity {
             currentUserRef.child("name").setValue(username);
             currentUserRef.child("gender").setValue(gender);
             currentUserRef.child("age").setValue(age);
-        }
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        if (queueListener != null) {
-            mQueueRef.child(currentUser.getUid()).removeEventListener(queueListener);
-        }
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        // If the user is searching and closes the app, ensure they are removed from the queue
-        if (isSearching) {
-            mQueueRef.child(currentUser.getUid()).removeValue();
         }
     }
 }

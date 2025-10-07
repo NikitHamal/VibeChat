@@ -152,7 +152,7 @@
     </LinearLayout>
 
     <FrameLayout
-        android:id="@+id/loading_overlay"
+        android:id="@+id/connecting_overlay"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:background="?attr/colorSurface"
@@ -161,7 +161,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        tools:visibility="gone">
+        tools:visibility="visible">
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -178,10 +178,27 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Connecting you to a stranger..."
-                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:text="Finding a match..."
+                android:textAppearance="?attr/textAppearanceHeadlineSmall"
+                android:fontFamily="@font/poppins_bold"
                 android:textColor="?attr/colorOnSurface"
-                android:layout_marginTop="16dp" />
+                android:layout_marginTop="24dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="This may take a moment."
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:layout_marginTop="8dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/cancel_matchmaking_button"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:text="Cancel" />
         </LinearLayout>
     </FrameLayout>
 

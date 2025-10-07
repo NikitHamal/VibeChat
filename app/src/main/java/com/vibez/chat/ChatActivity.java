@@ -24,6 +24,8 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.MutableData;
+import com.google.firebase.database.Transaction;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
@@ -31,44 +33,51 @@ import java.util.List;
 
 public class ChatActivity extends AppCompatActivity {
 
+    // Views
     private RecyclerView chatRecyclerView;
     private ChatAdapter chatAdapter;
-    private List<Message> messages;
     private EditText messageEditText;
-    private MaterialButton sendButton, nextButton;
+    private MaterialButton sendButton, nextButton, cancelMatchmakingButton;
     private TextView strangerNameTextView, strangerDetailsTextView, strangerFlagTextView;
-    private FrameLayout loadingOverlay;
+    private FrameLayout connectingOverlay;
     private MaterialToolbar toolbar;
 
+    // Firebase
     private FirebaseAuth mAuth;
     private FirebaseUser currentUser;
+    private DatabaseReference mUsersRef;
+    private DatabaseReference mQueueRef;
     private DatabaseReference mChatRoomRef;
+
+    // State
+    private List<Message> messages;
     private String chatRoomId;
-    private ChildEventListener mMessagesListener;
+    private boolean isMatchmaking = false;
+    private ValueEventListener queueListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        chatRoomId = getIntent().getStringExtra("CHAT_ROOM_ID");
-        if (chatRoomId == null) {
-            Toast.makeText(this, "Error: Chat room not found.", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
-
-        mAuth = FirebaseAuth.getInstance();
-        currentUser = mAuth.getCurrentUser();
-        mChatRoomRef = FirebaseDatabase.getInstance().getReference("chats").child(chatRoomId);
-
+        initializeFirebase();
         initializeViews();
         setupToolbar();
         setupRecyclerView();
         setupListeners();
 
-        loadStrangerData();
-        listenForMessages();
+        startMatchmaking();
+    }
+
+    private void initializeFirebase() {
+        mAuth = FirebaseAuth.getInstance();
+        currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            finish();
+            return;
+        }
+        mUsersRef = FirebaseDatabase.getInstance().getReference("users");
+        mQueueRef = FirebaseDatabase.getInstance().getReference("queue");
     }
 
     private void initializeViews() {
@@ -80,8 +89,8 @@ public class ChatActivity extends AppCompatActivity {
         messageEditText = findViewById(R.id.message_edit_text);
         sendButton = findViewById(R.id.send_button);
         nextButton = findViewById(R.id.next_button);
-        loadingOverlay = findViewById(R.id.loading_overlay);
-        loadingOverlay.setVisibility(View.GONE);
+        connectingOverlay = findViewById(R.id.connecting_overlay);
+        cancelMatchmakingButton = findViewById(R.id.cancel_matchmaking_button);
     }
 
     private void setupToolbar() {
@@ -106,38 +115,108 @@ public class ChatActivity extends AppCompatActivity {
 
     private void setupListeners() {
         sendButton.setOnClickListener(v -> sendMessage());
-        nextButton.setOnClickListener(v -> {
-            leaveChat();
-            // Go back to HomeActivity to find a new match
-            Intent intent = new Intent(ChatActivity.this, HomeActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            startActivity(intent);
+        nextButton.setOnClickListener(v -> findNewMatch());
+        cancelMatchmakingButton.setOnClickListener(v -> cancelMatchmaking());
+    }
+
+    private void startMatchmaking() {
+        isMatchmaking = true;
+        connectingOverlay.setVisibility(View.VISIBLE);
+        toolbar.setVisibility(View.GONE);
+
+        mQueueRef.child(currentUser.getUid()).setValue(true).addOnSuccessListener(aVoid -> {
+            listenForMatch();
+            findAndClaimMatch();
         });
     }
 
-    private void loadStrangerData() {
-        mChatRoomRef.child("users").addListenerForSingleValueEvent(new ValueEventListener() {
+    private void cancelMatchmaking() {
+        isMatchmaking = false;
+        mQueueRef.child(currentUser.getUid()).removeValue();
+        finish();
+    }
+
+    private void listenForMatch() {
+        queueListener = mQueueRef.child(currentUser.getUid()).addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                for (DataSnapshot userSnapshot : snapshot.getChildren()) {
-                    String userId = userSnapshot.getKey();
-                    if (userId != null && !userId.equals(currentUser.getUid())) {
-                        fetchAndDisplayStrangerInfo(userId);
-                        break;
+                if (snapshot.exists() && snapshot.hasChild("matchedWith")) {
+                    isMatchmaking = false;
+                    chatRoomId = snapshot.child("chatRoomId").getValue(String.class);
+                    String otherUserId = snapshot.child("matchedWith").getValue(String.class);
+
+                    if (chatRoomId != null && otherUserId != null) {
+                        mQueueRef.child(currentUser.getUid()).removeEventListener(queueListener);
+                        mChatRoomRef = FirebaseDatabase.getInstance().getReference("chats").child(chatRoomId);
+
+                        connectingOverlay.setVisibility(View.GONE);
+                        toolbar.setVisibility(View.VISIBLE);
+
+                        fetchAndDisplayStrangerInfo(otherUserId);
+                        listenForMessages();
                     }
                 }
             }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+
+    private void findAndClaimMatch() {
+        mQueueRef.orderByValue().equalTo(true).limitToFirst(10)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (!isMatchmaking) return; // Stop if matchmaking was cancelled
+                boolean matchFound = false;
+                for (DataSnapshot userSnapshot : snapshot.getChildren()) {
+                    String otherUserId = userSnapshot.getKey();
+                    if (otherUserId != null && !otherUserId.equals(currentUser.getUid())) {
+                        attemptToClaim(otherUserId);
+                        matchFound = true;
+                        break;
+                    }
+                }
+                if (!matchFound) {
+                    // Could add a timeout here if desired
+                }
+            }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+
+    private void attemptToClaim(String otherUserId) {
+        DatabaseReference otherUserRef = mQueueRef.child(otherUserId);
+        otherUserRef.runTransaction(new Transaction.Handler() {
+            @NonNull
+            @Override
+            public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
+                if (mutableData.getValue() instanceof Boolean && (Boolean) mutableData.getValue()) {
+                    String newChatRoomId = mUsersRef.push().getKey();
+                    mutableData.child("matchedWith").setValue(currentUser.getUid());
+                    mutableData.child("chatRoomId").setValue(newChatRoomId);
+                    return Transaction.success(mutableData);
+                }
+                return Transaction.abort();
+            }
 
             @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Toast.makeText(ChatActivity.this, "Failed to load stranger data.", Toast.LENGTH_SHORT).show();
+            public void onComplete(DatabaseError error, boolean committed, DataSnapshot currentData) {
+                if (committed && error == null) {
+                    String matchedChatRoomId = currentData.child("chatRoomId").getValue(String.class);
+                    mQueueRef.child(currentUser.getUid()).child("matchedWith").setValue(otherUserId);
+                    mQueueRef.child(currentUser.getUid()).child("chatRoomId").setValue(matchedChatRoomId);
+                } else {
+                    // Failed to claim, look for another match after a short delay
+                    new android.os.Handler().postDelayed(ChatActivity.this::findAndClaimMatch, 1000);
+                }
             }
         });
     }
 
     private void fetchAndDisplayStrangerInfo(String userId) {
-        DatabaseReference strangerRef = FirebaseDatabase.getInstance().getReference("users").child(userId);
-        strangerRef.addListenerForSingleValueEvent(new ValueEventListener() {
+        mUsersRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 User stranger = snapshot.getValue(User.class);
@@ -149,23 +228,32 @@ public class ChatActivity extends AppCompatActivity {
                     } else {
                         strangerDetailsTextView.setText(stranger.getGender() + ", " + stranger.getAge());
                         strangerDetailsTextView.setVisibility(View.VISIBLE);
-                        // For now, no flag for real users. This can be a future feature.
-                        strangerFlagTextView.setVisibility(View.GONE);
+                        strangerFlagTextView.setText(getFlagFromCountry(stranger.getCountry()));
+                        strangerFlagTextView.setVisibility(View.VISIBLE);
                     }
                 }
             }
-
             @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                 Toast.makeText(ChatActivity.this, "Failed to load stranger info.", Toast.LENGTH_SHORT).show();
-            }
+            public void onCancelled(@NonNull DatabaseError error) {}
         });
     }
 
+    private String getFlagFromCountry(String country) {
+        // This is a simplified mapping. A real app would use a library.
+        if (country == null) return "🏳️";
+        switch (country) {
+            case "United States": return "🇺🇸";
+            case "Canada": return "🇨🇦";
+            case "United Kingdom": return "🇬🇧";
+            case "Australia": return "🇦🇺";
+            case "India": return "🇮🇳";
+            default: return "🏳️";
+        }
+    }
 
     private void listenForMessages() {
         messages.clear();
-        mMessagesListener = mChatRoomRef.child("messages").addChildEventListener(new ChildEventListener() {
+        mChatRoomRef.child("messages").addChildEventListener(new ChildEventListener() {
             @Override
             public void onChildAdded(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
                 Message message = snapshot.getValue(Message.class);
@@ -182,15 +270,13 @@ public class ChatActivity extends AppCompatActivity {
             @Override
             public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
             @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Toast.makeText(ChatActivity.this, "Failed to load messages.", Toast.LENGTH_SHORT).show();
-            }
+            public void onCancelled(@NonNull DatabaseError error) {}
         });
     }
 
     private void sendMessage() {
         String messageText = messageEditText.getText().toString().trim();
-        if (!messageText.isEmpty()) {
+        if (!messageText.isEmpty() && mChatRoomRef != null) {
             String messageId = mChatRoomRef.child("messages").push().getKey();
             Message message = new Message(messageText, currentUser.getUid(), System.currentTimeMillis());
             if (messageId != null) {
@@ -202,17 +288,26 @@ public class ChatActivity extends AppCompatActivity {
 
     private void leaveChat() {
         if (mChatRoomRef != null) {
-            // Remove the entire chat room from the database
             mChatRoomRef.removeValue();
         }
         finish();
     }
 
+    private void findNewMatch() {
+        if (mChatRoomRef != null) {
+            mChatRoomRef.removeValue();
+        }
+        recreate(); // Restart the activity to find a new match
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (mChatRoomRef != null && mMessagesListener != null) {
-            mChatRoomRef.child("messages").removeEventListener(mMessagesListener);
+        if (isMatchmaking) {
+            mQueueRef.child(currentUser.getUid()).removeValue();
+        }
+        if (queueListener != null) {
+            mQueueRef.child(currentUser.getUid()).removeEventListener(queueListener);
         }
     }
 }
