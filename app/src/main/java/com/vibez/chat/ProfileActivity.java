@@ -1,37 +1,42 @@
 package com.vibez.chat;
 
-import android.content.SharedPreferences;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 public class ProfileActivity extends AppCompatActivity {
-
-    private static final String PREFS_NAME = "VibeZPrefs";
-    private static final String KEY_USERNAME = "username";
-    private static final String KEY_GENDER = "gender";
-    private static final String KEY_AGE = "age";
-    private static final String KEY_COUNTRY = "country";
 
     private MaterialToolbar toolbar;
     private FloatingActionButton fabEdit;
     
     // Display TextViews
-    private TextView nameDisplay, genderDisplay, ageDisplay, countryDisplay;
+    private TextView nameDisplay, genderDisplay, ageDisplay, countryDisplay, emailDisplay;
     
     // Edit Views
     private EditText nameEdit, ageEdit, countryEdit;
     private TextView genderEdit;
     
-    private SharedPreferences sharedPreferences;
+    private FirebaseAuth mAuth;
+    private DatabaseReference mUserRef;
+    private FirebaseUser currentUser;
+
     private boolean isEditMode = false;
     
     private final String[] genders = {"Male", "Female", "Other"};
@@ -42,46 +47,46 @@ public class ProfileActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_profile);
 
-        toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-        toolbar.setNavigationOnClickListener(v -> {
-            if (isEditMode) {
-                // Ask user to save or discard changes
-                new MaterialAlertDialogBuilder(this)
-                        .setTitle("Unsaved Changes")
-                        .setMessage("Do you want to save your changes?")
-                        .setPositiveButton("Save", (dialog, which) -> {
-                            saveProfile();
-                            finish();
-                        })
-                        .setNegativeButton("Discard", (dialog, which) -> finish())
-                        .setNeutralButton("Cancel", null)
-                        .show();
-            } else {
-                finish();
-            }
-        });
+        initializeFirebase();
+        initializeViews();
+        setupToolbar();
+        loadProfile();
+        setupClickListeners();
+    }
 
-        // Initialize views
+    private void initializeFirebase() {
+        mAuth = FirebaseAuth.getInstance();
+        currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            startActivity(new Intent(this, AuthActivity.class));
+            finish();
+            return;
+        }
+        mUserRef = FirebaseDatabase.getInstance().getReference("users").child(currentUser.getUid());
+    }
+
+    private void initializeViews() {
+        toolbar = findViewById(R.id.toolbar);
+        fabEdit = findViewById(R.id.fab_edit);
         nameDisplay = findViewById(R.id.name_display);
         genderDisplay = findViewById(R.id.gender_display);
         ageDisplay = findViewById(R.id.age_display);
         countryDisplay = findViewById(R.id.country_display);
+        emailDisplay = findViewById(R.id.email_display);
         
         nameEdit = findViewById(R.id.name_edit);
         genderEdit = findViewById(R.id.gender_edit);
         ageEdit = findViewById(R.id.age_edit);
         countryEdit = findViewById(R.id.country_edit);
-        
-        fabEdit = findViewById(R.id.fab_edit);
+    }
 
-        sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+    private void setupToolbar() {
+        setSupportActionBar(toolbar);
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        toolbar.setNavigationOnClickListener(v -> onBackPressed());
+    }
 
-        // Load profile data
-        loadProfile();
-
-        // Setup FAB click listener
+    private void setupClickListeners() {
         fabEdit.setOnClickListener(v -> {
             if (isEditMode) {
                 saveProfile();
@@ -89,44 +94,49 @@ public class ProfileActivity extends AppCompatActivity {
                 enterEditMode();
             }
         });
-
-        // Setup gender edit click listener
         genderEdit.setOnClickListener(v -> showGenderDialog());
     }
 
     private void loadProfile() {
-        String name = sharedPreferences.getString(KEY_USERNAME, "");
-        String gender = sharedPreferences.getString(KEY_GENDER, "");
-        String age = sharedPreferences.getString(KEY_AGE, "");
-        String country = sharedPreferences.getString(KEY_COUNTRY, "");
+        mUserRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                User user = snapshot.getValue(User.class);
+                if (user != null) {
+                    // Set display values
+                    nameDisplay.setText(user.getName() != null ? user.getName() : "Not specified");
+                    genderDisplay.setText(user.getGender() != null ? user.getGender() : "Not specified");
+                    ageDisplay.setText(user.getAge() > 0 ? String.valueOf(user.getAge()) : "Not specified");
+                    countryDisplay.setText(user.getCountry() != null ? user.getCountry() : "Not specified");
+                    emailDisplay.setText(user.getEmail() != null ? user.getEmail() : "No email");
 
-        // Set display values
-        nameDisplay.setText(name.isEmpty() ? "Not specified" : name);
-        genderDisplay.setText(gender.isEmpty() ? "Not specified" : gender);
-        ageDisplay.setText(age.isEmpty() ? "Not specified" : age);
-        countryDisplay.setText(country.isEmpty() ? "Not specified" : country);
+                    // Set edit values
+                    nameEdit.setText(user.getName());
+                    ageEdit.setText(user.getAge() > 0 ? String.valueOf(user.getAge()) : "");
+                    countryEdit.setText(user.getCountry());
+                    genderEdit.setText(user.getGender() != null ? user.getGender() : "Not specified");
 
-        // Set edit values
-        nameEdit.setText(name);
-        ageEdit.setText(age);
-        countryEdit.setText(country);
-        genderEdit.setText(gender.isEmpty() ? "Not specified" : gender);
-
-        // Find selected gender index
-        if (!gender.isEmpty()) {
-            for (int i = 0; i < genders.length; i++) {
-                if (genders[i].equals(gender)) {
-                    selectedGenderIndex = i;
-                    break;
+                    // Find selected gender index
+                    if (user.getGender() != null) {
+                        for (int i = 0; i < genders.length; i++) {
+                            if (genders[i].equals(user.getGender())) {
+                                selectedGenderIndex = i;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
-        }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(ProfileActivity.this, "Failed to load profile.", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void enterEditMode() {
         isEditMode = true;
         
-        // Hide display views, show edit views
         nameDisplay.setVisibility(View.GONE);
         nameEdit.setVisibility(View.VISIBLE);
         
@@ -139,34 +149,26 @@ public class ProfileActivity extends AppCompatActivity {
         countryDisplay.setVisibility(View.GONE);
         countryEdit.setVisibility(View.VISIBLE);
 
-        // Change FAB icon to check
         fabEdit.setImageResource(R.drawable.ic_check);
-        
-        // Focus on name field
         nameEdit.requestFocus();
     }
 
     private void saveProfile() {
         String name = nameEdit.getText().toString().trim();
-        String age = ageEdit.getText().toString().trim();
+        String ageStr = ageEdit.getText().toString().trim();
         String country = countryEdit.getText().toString().trim();
-        String gender = genderEdit.getText().toString().trim();
+        String gender = genderEdit.getText().toString();
 
-        // Validate
         if (name.isEmpty()) {
             Toast.makeText(this, "Name cannot be empty", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Save to SharedPreferences
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putString(KEY_USERNAME, name);
-        editor.putString(KEY_GENDER, gender.equals("Not specified") ? "" : gender);
-        editor.putString(KEY_AGE, age);
-        editor.putString(KEY_COUNTRY, country);
-        editor.apply();
+        mUserRef.child("name").setValue(name);
+        mUserRef.child("country").setValue(country);
+        mUserRef.child("gender").setValue(gender.equals("Not specified") ? null : gender);
+        mUserRef.child("age").setValue(ageStr.isEmpty() ? 0 : Integer.parseInt(ageStr));
 
-        // Update display
         loadProfile();
         exitEditMode();
         
@@ -176,7 +178,6 @@ public class ProfileActivity extends AppCompatActivity {
     private void exitEditMode() {
         isEditMode = false;
         
-        // Show display views, hide edit views
         nameDisplay.setVisibility(View.VISIBLE);
         nameEdit.setVisibility(View.GONE);
         
@@ -189,7 +190,6 @@ public class ProfileActivity extends AppCompatActivity {
         countryDisplay.setVisibility(View.VISIBLE);
         countryEdit.setVisibility(View.GONE);
 
-        // Change FAB icon back to edit
         fabEdit.setImageResource(R.drawable.ic_edit);
     }
 

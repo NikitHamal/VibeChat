@@ -7,6 +7,7 @@ public class User {
     private String photoUrl;
     private String gender;
     private int age;
+    private String country;
 
     public User() {
         // Default constructor required for calls to DataSnapshot.getValue(User.class)
@@ -65,5 +66,13 @@ public class User {
 
     public void setAge(int age) {
         this.age = age;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
     }
 }

@@ -29,6 +29,7 @@ local.properties
 # Local configuration files
 .settings/
 local.properties
+google-services.json
 
 # Keystore files
 *.jks
