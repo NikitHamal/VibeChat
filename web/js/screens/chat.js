@@ -1,43 +1,74 @@
 // Chat Screen Controller
+import { auth, database } from '../firebase.js';
+import { ref, set, get, onValue, runTransaction, remove, push, serverTimestamp, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
 export default class ChatScreen {
     constructor(app) {
         this.app = app;
         this.element = document.getElementById('chat-screen');
+
+        // Toolbar
         this.backBtn = document.getElementById('chat-back-btn');
         this.nextBtn = document.getElementById('next-btn');
-        this.messagesContainer = document.getElementById('messages-container');
-        this.messageInput = document.getElementById('message-input');
-        this.sendBtn = document.getElementById('send-btn');
         this.strangerName = document.getElementById('stranger-name');
         this.strangerInfo = document.getElementById('stranger-info');
         this.strangerFlag = document.querySelector('.stranger-flag');
+
+        // Messages
+        this.messagesContainer = document.getElementById('messages-container');
+        this.messageInput = document.getElementById('message-input');
+        this.sendBtn = document.getElementById('send-btn');
+
+        // Overlay
         this.loadingOverlay = document.getElementById('loading-overlay');
+        this.cancelMatchmakingBtn = document.getElementById('cancel-matchmaking-btn');
+
+        // Typing Indicator
+        this.typingIndicator = this.element.querySelector('.typing-indicator-container');
+        this.typingTimeout = null;
+
+        // Reactions
+        this.reactionPicker = document.getElementById('reaction-picker');
+        this.selectedMessage = null;
+        this.pressTimer = null;
+        this.lastClickTime = 0;
+
+        // Reply
+        this.replyPreviewContainer = document.getElementById('reply-preview-container');
+        this.replyPreviewName = document.querySelector('.reply-preview-name');
+        this.replyPreviewText = document.querySelector('.reply-preview-text');
+        this.cancelReplyBtn = document.getElementById('cancel-reply-btn');
+        this.messageToReply = null;
+        this.isSwiping = false;
+        this.swipeStartX = 0;
+        this.swipeCurrentX = 0;
+
+        // Suggestions
         this.suggestionsContainer = document.getElementById('suggestion-chips-container');
-        
-        this.currentStranger = null;
-        this.hasSentFirstMessage = false;
         this.suggestionChips = ['Hi!', 'Hey', 'Hello', 'ASL?', "What's up?"];
-        
-        // Bot data (same as Android app)
-        this.bots = [
-            { name: 'Aria', gender: 'female', age: 22, country: 'CA', flag: '🇨🇦' },
-            { name: 'Leo', gender: 'male', age: 25, country: 'US', flag: '🇺🇸' },
-            { name: 'Mia', gender: 'female', age: 21, country: 'GB', flag: '🇬🇧' },
-            { name: 'Zoe', gender: 'female', age: 23, country: 'AU', flag: '🇦🇺' },
-            { name: 'Kai', gender: 'male', age: 24, country: 'IN', flag: '🇮🇳' }
-        ];
+        this.hasSentFirstMessage = false;
+
+        // State
+        this.isMatchmaking = false;
+        this.currentUser = null;
+        this.myQueueRef = null;
+        this.queueListener = null;
+        this.chatRoomId = null;
+        this.otherUserId = null;
+        this.messageMap = {};
         
         this.setupEventListeners();
+        this.setupReactionPickerListeners();
     }
 
     setupEventListeners() {
         this.backBtn.addEventListener('click', () => this.handleBack());
-        this.nextBtn.addEventListener('click', () => this.connectToNewStranger());
+        this.cancelMatchmakingBtn.addEventListener('click', () => this.cancelMatchmaking());
+        this.nextBtn.addEventListener('click', () => this.findNewMatch());
         this.sendBtn.addEventListener('click', () => this.sendMessage());
+        this.cancelReplyBtn.addEventListener('click', () => this.hideReplyPreview());
         this.messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.sendMessage();
-            }
+            if (e.key === 'Enter') this.sendMessage();
         });
     }
 
@@ -45,51 +76,508 @@ export default class ChatScreen {
         return this.element;
     }
 
-    onEnter(data) {
-        this.userData = data;
-        this.connectToNewStranger();
+    onEnter() {
+        this.currentUser = auth.currentUser;
+        if (!this.currentUser) {
+            this.app.navigate('auth');
+            return;
+        }
+        this.startMatchmaking();
     }
 
     onExit() {
-        // Clean up
-        this.currentStranger = null;
-        this.messagesContainer.innerHTML = '';
+        // Cleanup matchmaking listeners
+        if (this.isMatchmaking && this.myQueueRef) {
+            remove(this.myQueueRef);
+        }
+        if (this.queueListener && this.myQueueRef) {
+            this.myQueueRef.off('value', this.queueListener);
+        }
+        this.myQueueRef = null;
+        this.queueListener = null;
+
+        // Cleanup chat listeners
+        if (this.chatRoomRef) {
+            this.chatRoomRef.off(); // Detaches all listeners on this reference
+        }
+        if (this.typingRef) {
+            this.typingRef.off();
+            this.typingRef.child(this.currentUser.uid).remove();
+        }
+        clearTimeout(this.typingTimeout);
+
+        // Reset state
+        this.chatRoomId = null;
+        this.otherUserId = null;
+        this.chatRoomRef = null;
+        this.typingRef = null;
+        this.isMatchmaking = false;
+        this.messageMap = {};
+        this.hideReplyPreview();
+        this.hasSentFirstMessage = false;
     }
 
-    connectToNewStranger() {
-        // Show loading
+    startMatchmaking() {
+        this.isMatchmaking = true;
         this.loadingOverlay.classList.add('active');
         this.messagesContainer.innerHTML = '';
-        this.hasSentFirstMessage = false;
-        this.hideSuggestions();
+        this.element.querySelector('.chat-toolbar').style.visibility = 'hidden';
+
+        this.myQueueRef = ref(database, 'queue/' + this.currentUser.uid);
         
-        // Simulate connection delay
-        setTimeout(() => {
-            // Select random bot
-            const randomBot = this.bots[Math.floor(Math.random() * this.bots.length)];
-            this.currentStranger = randomBot;
-            
-            // Update header
-            this.updateStrangerInfo(randomBot);
-            
-            // Hide loading
-            this.loadingOverlay.classList.remove('active');
-            
-            // Add system message
-            this.addMessage({
-                text: `You're now chatting with ${randomBot.name}. Be nice!`,
-                type: 'system'
-            });
-            
-            // Show suggestion chips
-            this.showSuggestions();
-        }, 2000);
+        // Use onDisconnect to handle unexpected exits
+        onDisconnect(this.myQueueRef).remove();
+
+        set(this.myQueueRef, true).then(() => {
+            this.listenForMatch();
+            this.findAndClaimMatch();
+        });
     }
 
-    updateStrangerInfo(stranger) {
-        this.strangerName.textContent = stranger.name;
-        this.strangerInfo.textContent = `${stranger.gender}, ${stranger.age}`;
-        this.strangerFlag.textContent = stranger.flag;
+    cancelMatchmaking() {
+        this.isMatchmaking = false;
+        if (this.myQueueRef) {
+            remove(this.myQueueRef);
+            this.myQueueRef = null;
+        }
+        this.app.navigate('home');
+    }
+
+    listenForMatch() {
+        this.queueListener = onValue(this.myQueueRef, (snapshot) => {
+            if (this.isMatchmaking && snapshot.exists() && snapshot.hasChild("matchedWith")) {
+                this.isMatchmaking = false;
+                const matchData = snapshot.val();
+                this.chatRoomId = matchData.chatRoomId;
+                this.otherUserId = matchData.matchedWith;
+
+                if (this.chatRoomId && this.otherUserId) {
+                    remove(this.myQueueRef); // Clean up my queue entry
+                    this.loadingOverlay.classList.remove('active');
+                    this.element.querySelector('.chat-toolbar').style.visibility = 'visible';
+
+                    this.fetchAndDisplayStrangerInfo(this.otherUserId);
+                    this.listenForMessages();
+                    this.setupTypingIndicator();
+                }
+            }
+        });
+    }
+
+    async findAndClaimMatch() {
+        const queueRef = ref(database, 'queue');
+        const snapshot = await get(queueRef);
+        if (!this.isMatchmaking) return;
+
+        let matchFound = false;
+        if (snapshot.exists()) {
+            for (const [otherUserId, value] of Object.entries(snapshot.val())) {
+                if (otherUserId !== this.currentUser.uid && value === true) {
+                    await this.attemptToClaim(otherUserId);
+                    matchFound = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    async attemptToClaim(otherUserId) {
+        const otherUserRef = ref(database, 'queue/' + otherUserId);
+        
+        try {
+            const result = await runTransaction(otherUserRef, (currentData) => {
+                if (currentData === true) {
+                    const newChatRoomId = push(ref(database, 'chats')).key;
+                    return {
+                        matchedWith: this.currentUser.uid,
+                        chatRoomId: newChatRoomId
+                    };
+                }
+                return; // Abort transaction
+            });
+
+            if (result.committed) {
+                const matchedChatRoomId = result.snapshot.child("chatRoomId").val();
+
+                // Set match info for the current user
+                await set(this.myQueueRef, {
+                    matchedWith: otherUserId,
+                    chatRoomId: matchedChatRoomId
+                });
+
+                // Create participants node in the new chat room
+                const chatRoomRef = ref(database, `chats/${matchedChatRoomId}`);
+                const participantsRef = ref(database, `chats/${matchedChatRoomId}/participants`);
+                const timestamp = serverTimestamp();
+                await set(participantsRef, {
+                    [this.currentUser.uid]: { status: 'active', joined: timestamp },
+                    [otherUserId]: { status: 'active', joined: timestamp }
+                });
+            } else {
+                // Failed to claim, try again after a delay
+                if (this.isMatchmaking) {
+                    setTimeout(() => this.findAndClaimMatch(), 1000);
+                }
+            }
+        } catch (error) {
+            console.error("Transaction failed: ", error);
+            if (this.isMatchmaking) {
+                setTimeout(() => this.findAndClaimMatch(), 1000);
+            }
+        }
+    }
+
+    async fetchAndDisplayStrangerInfo(userId) {
+        const userRef = ref(database, 'users/' + userId);
+        const snapshot = await get(userRef);
+        if (snapshot.exists()) {
+            const stranger = snapshot.val();
+            this.strangerName.textContent = stranger.name;
+            this.strangerInfo.textContent = `${stranger.gender}, ${stranger.age}`;
+            this.strangerFlag.textContent = this.getFlagFromCountry(stranger.country);
+
+            // Add system message and show suggestions
+            this.addMessageToUI({
+                type: 'system',
+                text: `You're now chatting with ${stranger.name}. Be nice!`
+            });
+            this.showSuggestions();
+        }
+    }
+
+    getFlagFromCountry(countryCode) {
+        const flags = { 'US': '🇺🇸', 'CA': '🇨🇦', 'GB': '🇬🇧', 'AU': '🇦🇺', 'IN': '🇮🇳' };
+        return flags[countryCode] || '🏳️';
+    }
+
+    setupTypingIndicator() {
+        this.typingRef = ref(database, `chats/${this.chatRoomId}/typing`);
+        const myTypingRef = ref(database, `chats/${this.chatRoomId}/typing/${this.currentUser.uid}`);
+        const otherUserTypingRef = ref(database, `chats/${this.chatRoomId}/typing/${this.otherUserId}`);
+
+        // Listen for other user's typing status
+        onValue(otherUserTypingRef, (snapshot) => {
+            if (snapshot.exists() && snapshot.val() === true) {
+                this.typingIndicator.style.display = 'block';
+                this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+            } else {
+                this.typingIndicator.style.display = 'none';
+            }
+        });
+
+        // Set my typing status
+        this.messageInput.addEventListener('input', () => {
+            if (this.typingRef) {
+                set(myTypingRef, true);
+                clearTimeout(this.typingTimeout);
+                this.typingTimeout = setTimeout(() => {
+                    set(myTypingRef, false);
+                }, 2000); // 2 seconds
+            }
+        });
+
+        // Ensure my typing status is removed on disconnect
+        onDisconnect(myTypingRef).remove();
+    }
+
+    listenForMessages() {
+        this.chatRoomRef = ref(database, `chats/${this.chatRoomId}`);
+        const messagesRef = ref(database, `chats/${this.chatRoomId}/messages`);
+
+        onValue(messagesRef, (snapshot) => {
+            // A simple but effective way to keep the UI in sync.
+            // For a large-scale app, listening to child_added, child_changed, etc., is more performant.
+            const typingIndicator = this.messagesContainer.querySelector('.typing-indicator-container');
+            this.messagesContainer.innerHTML = ''; // Clear all messages
+            if(typingIndicator) this.messagesContainer.appendChild(typingIndicator); // Re-add typing indicator
+
+            this.messageMap = {}; // Reset and repopulate the map
+            if (snapshot.exists()) {
+                const messages = snapshot.val();
+                const sortedMessages = Object.values(messages).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+                sortedMessages.forEach(message => {
+                    if (message && message.messageId) {
+                        this.messageMap[message.messageId] = message;
+                        this.addMessageToUI(message);
+                    }
+                });
+            }
+        });
+    }
+
+    // --- UI RENDERING ---
+    addMessageToUI(message) {
+        const wrapper = document.createElement('div');
+        const messageEl = document.createElement('div');
+        
+        const type = message.type === 'system' ? 'system' : (message.senderId === this.currentUser.uid ? 'sent' : 'received');
+        
+        wrapper.className = `message-wrapper ${type}`;
+        wrapper.dataset.messageId = message.messageId;
+        
+        messageEl.className = `message ${type}`;
+        
+        // Render reply quote if it exists
+        if (message.replyToMessageId && this.messageMap[message.replyToMessageId]) {
+            const originalMessage = this.messageMap[message.replyToMessageId];
+            const originalSenderName = originalMessage.senderId === this.currentUser.uid ? "You" : this.strangerName.textContent;
+
+            const replyQuote = document.createElement('div');
+            replyQuote.className = 'reply-quote';
+            replyQuote.innerHTML = `<p class="reply-quote-name">${originalSenderName}</p><p class="reply-quote-text">${originalMessage.text}</p>`;
+            messageEl.appendChild(replyQuote);
+        }
+        
+        const textNode = document.createElement('span');
+        textNode.textContent = message.text;
+        messageEl.appendChild(textNode);
+        
+        if (type !== 'system') {
+            wrapper.addEventListener('pointerdown', (e) => this.handleGestureStart(e, message, wrapper));
+        }
+
+        const reactionsContainer = this.createReactionsContainer(message.reactions);
+
+        wrapper.appendChild(messageEl);
+        wrapper.appendChild(reactionsContainer);
+        this.messagesContainer.insertBefore(wrapper, this.typingIndicator);
+        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+    }
+
+    // --- GESTURE HANDLING (SWIPE, LONG-PRESS, DOUBLE-TAP) ---
+    handleGestureStart(e, message, wrapper) {
+        if (this.reactionPicker.classList.contains('show')) {
+            this.hideReactionPicker();
+            return;
+        }
+        
+        this.swipeStartX = e.clientX;
+        this.isSwiping = false;
+        
+        const onMove = (moveEvent) => {
+            this.swipeCurrentX = moveEvent.clientX;
+            const dx = this.swipeCurrentX - this.swipeStartX;
+
+            if (Math.abs(dx) > 10 && !this.pressTimer) { // Start swipe
+                this.isSwiping = true;
+                clearTimeout(this.pressTimer);
+            }
+
+            if (this.isSwiping) {
+                const swipeAmount = Math.max(-80, Math.min(0, dx)); // Limit swipe to the left
+                wrapper.style.transform = `translateX(${swipeAmount}px)`;
+            }
+        };
+
+        const onEnd = () => {
+            wrapper.removeEventListener('pointermove', onMove);
+            wrapper.removeEventListener('pointerup', onEnd);
+            wrapper.removeEventListener('pointerleave', onEnd);
+
+            clearTimeout(this.pressTimer);
+
+            if (this.isSwiping) {
+                const dx = this.swipeCurrentX - this.swipeStartX;
+                if (dx < -60) { // Threshold for reply
+                    this.showReplyPreview(message);
+                }
+            } else { // It was a click/tap
+                const currentTime = new Date().getTime();
+                if (currentTime - this.lastClickTime < 300) {
+                    this.addReaction('❤️', message);
+                }
+                this.lastClickTime = currentTime;
+            }
+
+            // Reset style and state
+            wrapper.style.transform = 'translateX(0)';
+            this.isSwiping = false;
+        };
+
+        this.pressTimer = setTimeout(() => { // Long press for reactions
+            this.showReactionPicker(wrapper, message);
+            this.pressTimer = null; // Prevent it from being cleared in onEnd
+            onEnd();
+        }, 500);
+
+        wrapper.addEventListener('pointermove', onMove);
+        wrapper.addEventListener('pointerup', onEnd);
+        wrapper.addEventListener('pointerleave', onEnd);
+    }
+
+    // --- REACTION AND REPLY UI ---
+    showReactionPicker(messageWrapper, message) {
+        this.selectedMessage = message;
+        const rect = messageWrapper.getBoundingClientRect();
+        this.reactionPicker.style.top = `${rect.top - 50}px`;
+        this.reactionPicker.style.left = `${rect.left + (rect.width / 2) - (this.reactionPicker.offsetWidth / 2)}px`;
+        this.reactionPicker.classList.add('show');
+    }
+
+    hideReactionPicker() {
+        this.reactionPicker.classList.remove('show');
+        this.selectedMessage = null;
+    }
+
+    showReplyPreview(message) {
+        this.messageToReply = message;
+        const senderName = message.senderId === this.currentUser.uid ? "You" : this.strangerName.textContent;
+        this.replyPreviewName.textContent = `Replying to ${senderName}`;
+        this.replyPreviewText.textContent = message.text;
+        this.replyPreviewContainer.style.display = 'flex';
+        this.messageInput.focus();
+    }
+
+    hideReplyPreview() {
+        this.messageToReply = null;
+        this.replyPreviewContainer.style.display = 'none';
+    }
+
+    createReactionsContainer(reactions) {
+        const container = document.createElement('div');
+        container.className = 'reactions-container';
+        if (!reactions) {
+            container.style.display = 'none';
+            return container;
+        }
+
+        const reactionMap = {};
+        Object.values(reactions).forEach(emoji => {
+            reactionMap[emoji] = (reactionMap[emoji] || 0) + 1;
+        });
+
+        Object.entries(reactionMap).forEach(([emoji, count]) => {
+            const reactionEl = document.createElement('div');
+            reactionEl.className = 'reaction';
+            reactionEl.innerHTML = `${emoji} <span class="count">${count > 1 ? count : ''}</span>`;
+            container.appendChild(reactionEl);
+        });
+
+        return container;
+    }
+
+    // --- FIREBASE INTERACTIONS ---
+    setupReactionPickerListeners() {
+        this.reactionPicker.querySelectorAll('.reaction-emoji').forEach(emojiEl => {
+            emojiEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const reaction = e.target.dataset.reaction;
+                if (this.selectedMessage) this.addReaction(reaction, this.selectedMessage);
+                this.hideReactionPicker();
+            });
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!this.reactionPicker.classList.contains('show')) return;
+            if (!e.target.closest('.message-wrapper')) {
+                this.hideReactionPicker();
+            }
+        });
+    }
+
+    async addReaction(emoji, message) {
+        if (!message || !this.chatRoomRef || !this.currentUser) return;
+        const reactionRef = ref(database, `chats/${this.chatRoomId}/messages/${message.messageId}/reactions/${this.currentUser.uid}`);
+        const snapshot = await get(reactionRef);
+        if (snapshot.exists() && emoji === snapshot.val()) {
+            remove(reactionRef);
+        } else {
+            set(reactionRef, emoji);
+        }
+    }
+
+    sendMessage() {
+        const text = this.messageInput.value.trim();
+        if (text && this.chatRoomRef) {
+            const messagesRef = ref(database, `chats/${this.chatRoomId}/messages`);
+            const newMessageRef = push(messagesRef);
+
+            const messageData = {
+                messageId: newMessageRef.key,
+                text: text,
+                senderId: this.currentUser.uid,
+                timestamp: serverTimestamp(),
+                type: 'text'
+            };
+
+            if (this.messageToReply) {
+                messageData.replyToMessageId = this.messageToReply.messageId;
+            }
+
+            set(newMessageRef, messageData);
+
+            this.messageInput.value = '';
+            this.hideReplyPreview();
+
+            if (!this.hasSentFirstMessage) {
+                this.hideSuggestions();
+                this.hasSentFirstMessage = true;
+            }
+        }
+    }
+
+    async leaveChat(isFindingNewMatch = false) {
+        if (this.chatRoomRef && this.currentUser) {
+            // 1. Send "User left" system message
+            const messagesRef = ref(database, `chats/${this.chatRoomId}/messages`);
+            const newMessageRef = push(messagesRef);
+            await set(newMessageRef, {
+                messageId: newMessageRef.key,
+                text: 'User left the chat',
+                senderId: 'system',
+                timestamp: serverTimestamp(),
+                type: 'system'
+            });
+
+            // 2. Update participant status to "left"
+            const participantRef = ref(database, `chats/${this.chatRoomId}/participants/${this.currentUser.uid}`);
+            await set(participantRef, { status: 'left', left: serverTimestamp() });
+
+            // 3. Check if both participants have left to delete the chat
+            this.checkAndDeleteChatRoom();
+        }
+
+        // 4. Handle exit behavior
+        if (isFindingNewMatch) {
+            this.onExit();
+            this.onEnter(); // Restart matchmaking
+        } else {
+            this.app.navigate('home');
+        }
+    }
+
+    async checkAndDeleteChatRoom() {
+        if (!this.chatRoomRef) return;
+        const participantsRef = ref(database, `chats/${this.chatRoomId}/participants`);
+        const snapshot = await get(participantsRef);
+        
+        if (snapshot.exists()) {
+            const participants = snapshot.val();
+            const allLeft = Object.values(participants).every(p => p.status === 'left');
+            if (allLeft) {
+                remove(this.chatRoomRef);
+            }
+        }
+    }
+
+    findNewMatch() {
+        this.leaveChat(true);
+    }
+
+    handleBack() {
+        if (this.isMatchmaking) {
+            this.cancelMatchmaking();
+        } else {
+            this.app.showDialog({
+                title: 'Leave Chat',
+                message: 'Are you sure you want to leave this chat?',
+                buttons: [
+                    { label: 'Cancel' },
+                    { label: 'Leave', primary: true, onClick: () => this.leaveChat(false) }
+                ]
+            });
+        }
     }
 
     showSuggestions() {
@@ -110,127 +598,5 @@ export default class ChatScreen {
     hideSuggestions() {
         this.suggestionsContainer.classList.remove('active');
         this.suggestionsContainer.innerHTML = '';
-    }
-
-    sendMessage() {
-        const text = this.messageInput.value.trim();
-        if (!text || !this.currentStranger) return;
-        
-        // Add sent message
-        this.addMessage({
-            text,
-            type: 'sent'
-        });
-        
-        // Clear input
-        this.messageInput.value = '';
-        
-        // Hide suggestions after first message
-        if (!this.hasSentFirstMessage) {
-            this.hideSuggestions();
-            this.hasSentFirstMessage = true;
-        }
-        
-        // Simulate bot response
-        setTimeout(() => {
-            this.addBotResponse(text);
-        }, 1000 + Math.random() * 1000);
-    }
-
-    addBotResponse(userMessage) {
-        if (!this.currentStranger) return;
-        
-        const response = this.generateBotResponse(userMessage);
-        this.addMessage({
-            text: response,
-            type: 'received'
-        });
-    }
-
-    generateBotResponse(userMessage) {
-        const lowerMessage = userMessage.toLowerCase();
-        
-        // Contextual responses
-        if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
-            const greetings = ['Hello there!', 'Hi! How are you?', 'Hey! Nice to chat with you.'];
-            return greetings[Math.floor(Math.random() * greetings.length)];
-        }
-        
-        if (lowerMessage.includes('how are you')) {
-            return "I'm doing great! Thanks for asking. How about you?";
-        }
-        
-        if (lowerMessage.includes('asl')) {
-            return `I'm ${this.currentStranger.age}, ${this.currentStranger.gender} from ${this.currentStranger.country}!`;
-        }
-        
-        if (lowerMessage.includes('name')) {
-            return `My name is ${this.currentStranger.name}!`;
-        }
-        
-        if (lowerMessage.includes('bye')) {
-            return 'It was nice chatting with you! Bye!';
-        }
-        
-        if (lowerMessage.includes("what's up") || lowerMessage.includes('wassup')) {
-            return 'Just chatting with cool people like you!';
-        }
-        
-        // Generic responses
-        const genericResponses = [
-            "That's interesting!",
-            'Tell me more.',
-            "I'm not sure I understand. Can you explain?",
-            'Haha, that\'s funny!',
-            'What do you think?',
-            'Cool!',
-            'I see.',
-            'Really? That sounds nice!',
-            'Interesting perspective!',
-            'I agree!'
-        ];
-        
-        return genericResponses[Math.floor(Math.random() * genericResponses.length)];
-    }
-
-    addMessage(message) {
-        const messageEl = document.createElement('div');
-        messageEl.className = `message ${message.type}`;
-        messageEl.textContent = message.text;
-        
-        this.messagesContainer.appendChild(messageEl);
-        
-        // Scroll to bottom
-        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-    }
-
-    handleBack() {
-        // Show confirmation dialog
-        this.app.showDialog({
-            title: 'Leave Chat',
-            message: 'Are you sure you want to leave this chat?',
-            buttons: [
-                {
-                    label: 'Cancel',
-                    onClick: () => {}
-                },
-                {
-                    label: 'Leave',
-                    primary: true,
-                    onClick: () => {
-                        // Add system message
-                        this.addMessage({
-                            text: 'You left the chat.',
-                            type: 'system'
-                        });
-                        
-                        // Navigate back after a delay
-                        setTimeout(() => {
-                            this.app.navigate('home');
-                        }, 900);
-                    }
-                }
-            ]
-        });
     }
 }

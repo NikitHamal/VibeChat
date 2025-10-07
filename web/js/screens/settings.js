@@ -1,5 +1,7 @@
 // Settings Screen Controller
 import Storage from '../storage.js';
+import { auth } from '../firebase.js';
+import { signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 export default class SettingsScreen {
     constructor(app) {
@@ -11,7 +13,10 @@ export default class SettingsScreen {
         this.themeValue = document.getElementById('theme-value');
         this.accountSection = document.getElementById('account-section');
         this.profileHeaderCard = document.getElementById('profile-header-card');
+        this.profileAvatar = this.profileHeaderCard.querySelector('.profile-avatar');
+        this.profileInfo = this.profileHeaderCard.querySelector('.profile-info h3');
         this.userModeText = document.getElementById('user-mode-text');
+        this.signOutSetting = document.getElementById('sign-out-setting');
         
         this.themeOptions = [
             { label: 'Light', value: 'light' },
@@ -26,6 +31,7 @@ export default class SettingsScreen {
         this.backBtn.addEventListener('click', () => this.handleBack());
         this.profileSetting.addEventListener('click', () => this.openProfile());
         this.themeSetting.addEventListener('click', () => this.showThemeDialog());
+        this.signOutSetting.addEventListener('click', () => this.handleSignOut());
     }
 
     getElement() {
@@ -34,7 +40,7 @@ export default class SettingsScreen {
 
     onEnter(data) {
         this.updateThemeDisplay();
-        this.updateUIBasedOnAuthMode();
+        this.updateUIForUser();
     }
 
     onExit() {
@@ -47,21 +53,24 @@ export default class SettingsScreen {
         this.themeValue.textContent = themeOption ? themeOption.label : 'System Default';
     }
 
-    updateUIBasedOnAuthMode() {
-        const authMode = Storage.getAuthMode();
-        
-        if (authMode === 'google') {
-            // User is logged in with Google
-            // Hide "Anonymous Mode" text
-            this.userModeText.style.display = 'none';
-            // Show Profile section
-            this.accountSection.style.display = 'block';
-        } else {
-            // User is in guest mode
-            // Show "Anonymous Mode" text
+    updateUIForUser() {
+        const user = auth.currentUser;
+        if (!user) {
+            this.app.navigate('auth');
+            return;
+        }
+
+        if (user.isAnonymous) {
+            this.profileAvatar.innerHTML = `<span class="material-symbols-outlined">person</span>`;
+            this.profileInfo.textContent = 'Guest User';
+            this.userModeText.textContent = 'Anonymous Mode';
             this.userModeText.style.display = 'block';
-            // Hide Profile section
             this.accountSection.style.display = 'none';
+        } else {
+            this.profileAvatar.innerHTML = `<img src="${user.photoURL}" alt="User Avatar">`;
+            this.profileInfo.textContent = user.displayName;
+            this.userModeText.style.display = 'none';
+            this.accountSection.style.display = 'block';
         }
     }
 
@@ -75,23 +84,21 @@ export default class SettingsScreen {
         this.app.showDialog({
             title: 'Choose theme',
             options,
-            buttons: [
-                {
-                    label: 'Cancel',
-                    onClick: () => {}
-                }
-            ],
+            buttons: [{ label: 'Cancel', onClick: () => {} }],
             onSelect: (option) => {
-                // Apply theme
                 this.app.setTheme(option.value);
                 this.updateThemeDisplay();
-                
-                // Auto-close after selection
-                setTimeout(() => {
-                    this.app.hideDialog();
-                }, 200);
+                setTimeout(() => this.app.hideDialog(), 200);
             }
         });
+    }
+
+    handleSignOut() {
+        signOut(auth).catch(error => {
+            console.error("Sign Out Error", error);
+            this.app.showToast(`Error: ${error.message}`);
+        });
+        // onAuthStateChanged in app.js will handle navigation
     }
 
     openProfile() {

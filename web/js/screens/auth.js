@@ -1,5 +1,7 @@
 // Auth Screen Controller
 import Storage from '../storage.js';
+import { auth } from '../firebase.js';
+import { GoogleAuthProvider, signInWithPopup, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 export default class AuthScreen {
     constructor(app) {
@@ -22,55 +24,36 @@ export default class AuthScreen {
 
     onEnter(data) {
         // Reset UI if needed
+        this.googleBtn.disabled = false;
+        this.guestBtn.disabled = false;
     }
 
     onExit() {
         // Clean up if needed
     }
 
-    handleGoogleSignIn() {
-        // Save auth mode
-        Storage.setAuthMode('google');
-        
-        // TODO: Implement actual Google Sign In
-        // For now, just show a message and navigate
-        this.showToast('Google Sign In - Coming Soon');
-        
-        // Navigate to home
-        setTimeout(() => {
-            this.app.navigate('home');
-        }, 500);
+    async handleGoogleSignIn() {
+        this.googleBtn.disabled = true;
+        const provider = new GoogleAuthProvider();
+        try {
+            await signInWithPopup(auth, provider);
+            // Auth state listener in app.js will handle navigation
+        } catch (error) {
+            console.error("Google Sign-In Error:", error);
+            this.app.showToast(`Error: ${error.message}`);
+            this.googleBtn.disabled = false;
+        }
     }
 
-    handleGuestContinue() {
-        // Save auth mode
-        Storage.setAuthMode('guest');
-        
-        // Navigate to home
-        this.app.navigate('home');
-    }
-
-    showToast(message) {
-        // Simple toast notification (you can enhance this)
-        const toast = document.createElement('div');
-        toast.style.cssText = `
-            position: fixed;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: var(--surface-container-highest);
-            color: var(--on-surface);
-            padding: 12px 24px;
-            border-radius: 8px;
-            box-shadow: var(--elevation-3);
-            z-index: 1000;
-            font-size: 14px;
-        `;
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.remove();
-        }, 3000);
+    async handleGuestContinue() {
+        this.guestBtn.disabled = true;
+        try {
+            await signInAnonymously(auth);
+            // Auth state listener in app.js will handle navigation
+        } catch (error) {
+            console.error("Anonymous Sign-In Error:", error);
+            this.app.showToast(`Error: ${error.message}`);
+            this.guestBtn.disabled = false;
+        }
     }
 }

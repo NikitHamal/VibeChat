@@ -243,14 +243,79 @@
     text-align: center;
 }
 
+.reply-quote {
+    padding: var(--space-sm) var(--space-md);
+    margin-bottom: var(--space-sm);
+    border-radius: var(--radius-md);
+    opacity: 0.8;
+    border-left: 3px solid var(--primary);
+}
+
+.message.sent .reply-quote {
+    background-color: rgba(var(--primary-rgb), 0.1);
+}
+
+.message.received .reply-quote {
+    background-color: rgba(var(--secondary-rgb), 0.1);
+}
+
+.reply-quote-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 2px;
+}
+
+.reply-quote-text {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .chat-input-container {
     display: flex;
-    align-items: center;
-    gap: var(--space-lg);
-    padding: var(--space-lg);
+    flex-direction: column; /* Stack reply preview on top */
     border-top: 1px solid var(--surface-variant);
     background-color: var(--surface);
     flex-shrink: 0;
+}
+
+.reply-preview {
+    width: 100%;
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--outline);
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    background-color: var(--surface-container-low);
+}
+
+.reply-preview-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.reply-preview-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.reply-preview-text {
+    font-size: 14px;
+    color: var(--on-surface-variant);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.main-input-area {
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
+    width: 100%;
+    padding: var(--space-lg);
 }
 
 /* ===================================
@@ -382,6 +447,21 @@
     text-align: center;
     line-height: 1.5;
     opacity: 0.7;
+}
+
+/* Edit Mode Styles */
+.profile-screen .field-input,
+.profile-screen #gender-edit {
+    display: none;
+}
+
+.profile-screen.edit-mode .field-value {
+    display: none;
+}
+
+.profile-screen.edit-mode .field-input,
+.profile-screen.edit-mode #gender-edit {
+    display: block;
 }
 
 /* ===================================
