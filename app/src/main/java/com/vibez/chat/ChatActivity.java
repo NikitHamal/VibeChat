@@ -1,25 +1,33 @@
 package com.vibez.chat;
 
+import android.content.Intent;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+
 import androidx.activity.OnBackPressedCallback;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.ChildEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 public class ChatActivity extends AppCompatActivity {
 
@@ -29,23 +37,41 @@ public class ChatActivity extends AppCompatActivity {
     private EditText messageEditText;
     private MaterialButton sendButton, nextButton;
     private TextView strangerNameTextView, strangerDetailsTextView, strangerFlagTextView;
-    private LinearLayout suggestionChipContainer;
     private FrameLayout loadingOverlay;
     private MaterialToolbar toolbar;
 
-    private final String[] botNames = {"Aria", "Leo", "Mia", "Zoe", "Kai"};
-    private final String[] botGenders = {"female", "male", "female", "female", "male"};
-    private final int[] botAges = {22, 25, 21, 23, 24};
-    private final String[] botFlags = {"🇨🇦", "🇺🇸", "🇬🇧", "🇦🇺", "🇮🇳", "🇯🇵", "🇩🇪"};
-    private final String[] suggestionChips = {"Hi!", "Hey", "Hello", "ASL?", "What's up?"};
-    private final Random random = new Random();
+    private FirebaseAuth mAuth;
+    private FirebaseUser currentUser;
+    private DatabaseReference mChatRoomRef;
+    private String chatRoomId;
+    private ChildEventListener mMessagesListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        // Initialize views
+        chatRoomId = getIntent().getStringExtra("CHAT_ROOM_ID");
+        if (chatRoomId == null) {
+            Toast.makeText(this, "Error: Chat room not found.", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        mAuth = FirebaseAuth.getInstance();
+        currentUser = mAuth.getCurrentUser();
+        mChatRoomRef = FirebaseDatabase.getInstance().getReference("chats").child(chatRoomId);
+
+        initializeViews();
+        setupToolbar();
+        setupRecyclerView();
+        setupListeners();
+
+        loadStrangerData();
+        listenForMessages();
+    }
+
+    private void initializeViews() {
         toolbar = findViewById(R.id.toolbar);
         strangerNameTextView = findViewById(R.id.stranger_name);
         strangerDetailsTextView = findViewById(R.id.stranger_details);
@@ -54,134 +80,139 @@ public class ChatActivity extends AppCompatActivity {
         messageEditText = findViewById(R.id.message_edit_text);
         sendButton = findViewById(R.id.send_button);
         nextButton = findViewById(R.id.next_button);
-        suggestionChipContainer = findViewById(R.id.suggestion_chip_container);
         loadingOverlay = findViewById(R.id.loading_overlay);
+        loadingOverlay.setVisibility(View.GONE);
+    }
 
-        // Setup Toolbar
+    private void setupToolbar() {
         setSupportActionBar(toolbar);
         getSupportActionBar().setDisplayShowTitleEnabled(false);
+        toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                // Show "You left the chat" message and exit after a delay
-                addMessage(new Message("You left the chat.", Message.TYPE_SYSTEM));
-                messageEditText.setEnabled(false);
-                sendButton.setEnabled(false);
-                nextButton.setEnabled(false);
-                new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    finish();
-                }, 900);
+                leaveChat();
             }
         });
-        toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
+    }
 
-        // Setup RecyclerView
+    private void setupRecyclerView() {
         messages = new ArrayList<>();
         chatAdapter = new ChatAdapter(messages);
         LinearLayoutManager layoutManager = new LinearLayoutManager(this);
         chatRecyclerView.setLayoutManager(layoutManager);
         chatRecyclerView.setAdapter(chatAdapter);
-
-        // Set listeners
-        sendButton.setOnClickListener(v -> sendMessage());
-        nextButton.setOnClickListener(v -> connectToNewStranger());
-        setupSuggestionChips();
-
-        // Start chat
-        connectToNewStranger();
     }
 
-    private void connectToNewStranger() {
-        loadingOverlay.setVisibility(View.VISIBLE);
-        suggestionChipContainer.setVisibility(View.VISIBLE); // Show suggestions for new chat
-        if (messages != null) {
-            messages.clear();
-            chatAdapter.notifyDataSetChanged();
-        }
+    private void setupListeners() {
+        sendButton.setOnClickListener(v -> sendMessage());
+        nextButton.setOnClickListener(v -> {
+            leaveChat();
+            // Go back to HomeActivity to find a new match
+            Intent intent = new Intent(ChatActivity.this, HomeActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            startActivity(intent);
+        });
+    }
 
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            int botIndex = random.nextInt(botNames.length);
-            String botName = botNames[botIndex];
-            String botDetails = botGenders[botIndex] + ", " + botAges[botIndex];
-            String botFlag = botFlags[random.nextInt(botFlags.length)];
+    private void loadStrangerData() {
+        mChatRoomRef.child("users").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                for (DataSnapshot userSnapshot : snapshot.getChildren()) {
+                    String userId = userSnapshot.getKey();
+                    if (userId != null && !userId.equals(currentUser.getUid())) {
+                        fetchAndDisplayStrangerInfo(userId);
+                        break;
+                    }
+                }
+            }
 
-            strangerNameTextView.setText(botName);
-            strangerDetailsTextView.setText(botDetails);
-            strangerFlagTextView.setText(botFlag);
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(ChatActivity.this, "Failed to load stranger data.", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 
-            addMessage(new Message("You're now chatting with " + botName + ". Be nice!", Message.TYPE_SYSTEM));
-            loadingOverlay.setVisibility(View.GONE);
-        }, 2000); // Simulate network delay
+    private void fetchAndDisplayStrangerInfo(String userId) {
+        DatabaseReference strangerRef = FirebaseDatabase.getInstance().getReference("users").child(userId);
+        strangerRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                User stranger = snapshot.getValue(User.class);
+                if (stranger != null) {
+                    strangerNameTextView.setText(stranger.getName());
+                    if ("Anonymous".equals(stranger.getName())) {
+                        strangerDetailsTextView.setVisibility(View.GONE);
+                        strangerFlagTextView.setText("🤫");
+                    } else {
+                        strangerDetailsTextView.setText(stranger.getGender() + ", " + stranger.getAge());
+                        strangerDetailsTextView.setVisibility(View.VISIBLE);
+                        // For now, no flag for real users. This can be a future feature.
+                        strangerFlagTextView.setVisibility(View.GONE);
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                 Toast.makeText(ChatActivity.this, "Failed to load stranger info.", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+
+    private void listenForMessages() {
+        messages.clear();
+        mMessagesListener = mChatRoomRef.child("messages").addChildEventListener(new ChildEventListener() {
+            @Override
+            public void onChildAdded(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
+                Message message = snapshot.getValue(Message.class);
+                if (message != null) {
+                    messages.add(message);
+                    chatAdapter.notifyItemInserted(messages.size() - 1);
+                    chatRecyclerView.scrollToPosition(messages.size() - 1);
+                }
+            }
+            @Override
+            public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
+            @Override
+            public void onChildRemoved(@NonNull DataSnapshot snapshot) {}
+            @Override
+            public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(ChatActivity.this, "Failed to load messages.", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void sendMessage() {
         String messageText = messageEditText.getText().toString().trim();
         if (!messageText.isEmpty()) {
-            addMessage(new Message(messageText, Message.TYPE_SENT));
-            messageEditText.setText("");
-            simulateBotResponse(messageText);
+            String messageId = mChatRoomRef.child("messages").push().getKey();
+            Message message = new Message(messageText, currentUser.getUid(), System.currentTimeMillis());
+            if (messageId != null) {
+                mChatRoomRef.child("messages").child(messageId).setValue(message);
+                messageEditText.setText("");
+            }
         }
     }
 
-    private void sendMessageFromChip(String messageText) {
-        if (!messageText.isEmpty()) {
-            addMessage(new Message(messageText, Message.TYPE_SENT));
-            simulateBotResponse(messageText);
-            suggestionChipContainer.setVisibility(View.GONE); // Hide suggestions after use
+    private void leaveChat() {
+        if (mChatRoomRef != null) {
+            // Remove the entire chat room from the database
+            mChatRoomRef.removeValue();
         }
+        finish();
     }
 
-    private void simulateBotResponse(String userMessage) {
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            String response = getBotResponse(userMessage);
-            addMessage(new Message(response, Message.TYPE_RECEIVED));
-        }, 1000);
-    }
-
-    private String getBotResponse(String userMessage) {
-        String lowerCaseMessage = userMessage.toLowerCase();
-
-        if (lowerCaseMessage.contains("how are you")) {
-            return "I'm just a bot, but I'm doing great! Thanks for asking.";
-        } else if (lowerCaseMessage.contains("asl")) {
-            return "I'm a bot from the internet, so age and location don't really apply to me!";
-        } else if (lowerCaseMessage.contains("your name")) {
-            return "You can call me VibeZBot!";
-        } else if (lowerCaseMessage.contains("hello") || lowerCaseMessage.contains("hi") || lowerCaseMessage.contains("hey")) {
-            String[] greetings = {"Hello there!", "Hi! What's on your mind?", "Hey! Nice to chat with you."};
-            return greetings[random.nextInt(greetings.length)];
-        } else if (lowerCaseMessage.contains("what's up") || lowerCaseMessage.contains("what are you doing")) {
-            return "Just chatting with cool people like you!";
-        } else if (lowerCaseMessage.contains("bye")) {
-            return "It was nice talking to you! Bye!";
-        }
-
-        String[] genericResponses = {
-                "That's interesting!",
-                "Tell me more.",
-                "I'm not sure I understand. Can you explain?",
-                "Haha, that's funny!",
-                "What do you think?",
-                "Cool!",
-                "I see."
-        };
-        return genericResponses[random.nextInt(genericResponses.length)];
-    }
-
-    private void addMessage(Message message) {
-        messages.add(message);
-        chatAdapter.notifyItemInserted(messages.size() - 1);
-        chatRecyclerView.scrollToPosition(messages.size() - 1);
-    }
-
-    private void setupSuggestionChips() {
-        suggestionChipContainer.removeAllViews();
-        LayoutInflater inflater = LayoutInflater.from(this);
-        for (String suggestion : suggestionChips) {
-            TextView chip = (TextView) inflater.inflate(R.layout.item_suggestion_chip, suggestionChipContainer, false);
-            chip.setText(suggestion);
-            chip.setOnClickListener(v -> sendMessageFromChip(chip.getText().toString()));
-            suggestionChipContainer.addView(chip);
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (mChatRoomRef != null && mMessagesListener != null) {
+            mChatRoomRef.child("messages").removeEventListener(mMessagesListener);
         }
     }
 }

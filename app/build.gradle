@@ -1,10 +1,16 @@
 plugins {
     id 'com.android.application'
+    id 'com.google.gms.google-services'
 }
 
 android {
     namespace 'com.vibez.chat'
     compileSdk 34
+
+    Properties properties = new Properties()
+    if (rootProject.file('local.properties').exists()) {
+        properties.load(rootProject.file('local.properties').newDataInputStream())
+    }
 
     defaultConfig {
         applicationId "com.vibez.chat"
@@ -14,6 +20,9 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // Make the API key available as a build configuration field
+        buildConfigField "String", "FIREBASE_API_KEY", "\"${properties.getProperty('FIREBASE_API_KEY')}\""
     }
 
     signingConfigs {
@@ -42,6 +51,14 @@ android {
 }
 
 dependencies {
+
+    // Import the Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:33.10.0"))
+
+    // Add the dependencies for the Firebase products you want to use
+    // When using the BoM, don't specify versions in Firebase dependencies
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-database")
 
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:1.12.0'

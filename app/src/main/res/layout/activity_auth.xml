@@ -143,7 +143,7 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/google_sign_in_button"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="wrap_content"
             android:text="Continue with Google"
             android:textSize="16sp"
             android:fontFamily="@font/poppins_semi_bold"
@@ -197,7 +197,7 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/guest_continue_button"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="wrap_content"
             android:text="Continue as Guest"
             android:textSize="16sp"
             android:fontFamily="@font/poppins_semi_bold"

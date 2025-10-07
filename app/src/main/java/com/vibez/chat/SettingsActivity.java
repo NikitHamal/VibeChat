@@ -120,16 +120,16 @@ public class SettingsActivity extends AppCompatActivity {
         String authMode = appPreferences.getString(KEY_AUTH_MODE, "guest");
         
         if ("google".equals(authMode)) {
-            // User is logged in with Google
-            // Hide "Anonymous Mode" text
-            userModeText.setVisibility(View.GONE);
+            // User is logged in with Google, hide the anonymous mode card
+            profileHeaderCard.setVisibility(View.GONE);
+
             // Show Profile section
             accountSectionHeader.setVisibility(View.VISIBLE);
             accountSectionCard.setVisibility(View.VISIBLE);
         } else {
-            // User is in guest mode
-            // Show "Anonymous Mode" text
-            userModeText.setVisibility(View.VISIBLE);
+            // User is in guest mode, show the anonymous mode card
+            profileHeaderCard.setVisibility(View.VISIBLE);
+
             // Hide Profile section
             accountSectionHeader.setVisibility(View.GONE);
             accountSectionCard.setVisibility(View.GONE);

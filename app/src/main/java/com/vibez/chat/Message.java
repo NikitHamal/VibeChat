@@ -1,23 +1,42 @@
 package com.vibez.chat;
 
 public class Message {
-    public static final int TYPE_SENT = 0;
-    public static final int TYPE_RECEIVED = 1;
-    public static final int TYPE_SYSTEM = 2;
 
     private String text;
-    private int type;
+    private String senderId;
+    private long timestamp;
 
-    public Message(String text, int type) {
+    public Message() {
+        // Default constructor required for calls to DataSnapshot.getValue(Message.class)
+    }
+
+    public Message(String text, String senderId, long timestamp) {
         this.text = text;
-        this.type = type;
+        this.senderId = senderId;
+        this.timestamp = timestamp;
     }
 
     public String getText() {
         return text;
     }
 
-    public int getType() {
-        return type;
+    public void setText(String text) {
+        this.text = text;
+    }
+
+    public String getSenderId() {
+        return senderId;
+    }
+
+    public void setSenderId(String senderId) {
+        this.senderId = senderId;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
     }
 }

@@ -16,19 +16,26 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.color.MaterialColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 public class HomeActivity extends AppCompatActivity {
-
-    private static final String PREFS_NAME = "VibeZPrefs";
-    private static final String KEY_USERNAME = "username";
-    private static final String KEY_GENDER = "gender";
-    private static final String KEY_AGE = "age";
 
     private MaterialToolbar toolbar;
     private EditText usernameEditText, ageEditText;
     private TextView genderTextView;
     private MaterialButton startChatButton;
-    private SharedPreferences sharedPreferences;
+
+    private FirebaseAuth mAuth;
+    private DatabaseReference mUsersRef;
+    private DatabaseReference mQueueRef;
+    private FirebaseUser currentUser;
+    private ValueEventListener mUserValueListener;
 
     private final String[] genders = {"Male", "Female", "Other"};
     private int selectedGenderIndex = -1;
@@ -38,23 +45,21 @@ public class HomeActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
 
-        // Initialize views
+        mAuth = FirebaseAuth.getInstance();
+        currentUser = mAuth.getCurrentUser();
+        mUsersRef = FirebaseDatabase.getInstance().getReference("users");
+        mQueueRef = FirebaseDatabase.getInstance().getReference("queue");
+
         toolbar = findViewById(R.id.toolbar);
         usernameEditText = findViewById(R.id.username_edit_text);
         ageEditText = findViewById(R.id.age_edit_text);
         genderTextView = findViewById(R.id.gender_text_view);
         startChatButton = findViewById(R.id.start_chat_button);
 
-        // Setup Toolbar
         setSupportActionBar(toolbar);
 
-        // Initialize SharedPreferences
-        sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-
-        // Load user data
         loadUserData();
 
-        // Set listeners
         genderTextView.setOnClickListener(v -> showGenderSelectionDialog());
         startChatButton.setOnClickListener(v -> startChat());
     }
@@ -76,22 +81,22 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void loadUserData() {
-        String username = sharedPreferences.getString(KEY_USERNAME, "");
-        String gender = sharedPreferences.getString(KEY_GENDER, "");
-        String age = sharedPreferences.getString(KEY_AGE, "");
-
-        usernameEditText.setText(username);
-        ageEditText.setText(age);
-
-        if (gender != null && !gender.isEmpty()) {
-            genderTextView.setText(gender);
-            genderTextView.setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface, 0));
-            for (int i = 0; i < genders.length; i++) {
-                if (genders[i].equals(gender)) {
-                    selectedGenderIndex = i;
-                    break;
+        if (currentUser != null) {
+            mUserValueListener = mUsersRef.child(currentUser.getUid()).addValueEventListener(new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot snapshot) {
+                    User user = snapshot.getValue(User.class);
+                    if (user != null) {
+                        usernameEditText.setText(user.getName());
+                        // We will add age and gender to the User model later
+                    }
                 }
-            }
+
+                @Override
+                public void onCancelled(@NonNull DatabaseError error) {
+                    Toast.makeText(HomeActivity.this, "Failed to load user data.", Toast.LENGTH_SHORT).show();
+                }
+            });
         }
     }
 
@@ -118,17 +123,86 @@ public class HomeActivity extends AppCompatActivity {
             return;
         }
 
-        saveUserData(username, gender, age);
+        saveUserDataToFirebase(username, gender, age);
 
-        Intent intent = new Intent(HomeActivity.this, ChatActivity.class);
-        startActivity(intent);
+        startChatButton.setEnabled(false);
+        startChatButton.setText("Searching...");
+
+        // Add user to the queue
+        DatabaseReference userInQueueRef = mQueueRef.child(currentUser.getUid());
+        userInQueueRef.setValue(true).addOnSuccessListener(aVoid -> {
+            findMatch();
+        });
     }
 
-    private void saveUserData(String username, String gender, String age) {
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putString(KEY_USERNAME, username);
-        editor.putString(KEY_GENDER, gender);
-        editor.putString(KEY_AGE, age);
-        editor.apply();
+    private void findMatch() {
+        mQueueRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.getChildrenCount() > 1) {
+                    for (DataSnapshot userSnapshot : snapshot.getChildren()) {
+                        String otherUserId = userSnapshot.getKey();
+                        if (otherUserId != null && !otherUserId.equals(currentUser.getUid())) {
+                            // Match found
+                            mQueueRef.removeEventListener(this); // Stop listening to the queue
+                            createChatRoom(otherUserId);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(HomeActivity.this, "Matchmaking failed.", Toast.LENGTH_SHORT).show();
+                startChatButton.setEnabled(true);
+                startChatButton.setText("Start Chat");
+            }
+        });
+    }
+
+    private void createChatRoom(String otherUserId) {
+        DatabaseReference chatRoomRef = FirebaseDatabase.getInstance().getReference("chats").push();
+        String chatRoomId = chatRoomRef.getKey();
+
+        // Add users to the chat room
+        chatRoomRef.child("users").child(currentUser.getUid()).setValue(true);
+        chatRoomRef.child("users").child(otherUserId).setValue(true);
+
+        // Add a system message
+        DatabaseReference messagesRef = chatRoomRef.child("messages");
+        String messageId = messagesRef.push().getKey();
+        Message systemMessage = new Message("You are now connected. Be nice!", "system", System.currentTimeMillis());
+        messagesRef.child(messageId).setValue(systemMessage);
+
+        // Remove users from the queue
+        mQueueRef.child(currentUser.getUid()).removeValue();
+        mQueueRef.child(otherUserId).removeValue();
+
+        // Navigate to ChatActivity
+        Intent intent = new Intent(HomeActivity.this, ChatActivity.class);
+        intent.putExtra("CHAT_ROOM_ID", chatRoomId);
+        startActivity(intent);
+
+        // Re-enable the button
+        startChatButton.setEnabled(true);
+        startChatButton.setText("Start Chat");
+    }
+
+    private void saveUserDataToFirebase(String username, String gender, String age) {
+        if (currentUser != null) {
+            DatabaseReference currentUserRef = mUsersRef.child(currentUser.getUid());
+            currentUserRef.child("name").setValue(username);
+            currentUserRef.child("gender").setValue(gender);
+            currentUserRef.child("age").setValue(Integer.parseInt(age));
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (mUserValueListener != null && currentUser != null) {
+            mUsersRef.child(currentUser.getUid()).removeEventListener(mUserValueListener);
+        }
     }
 }
