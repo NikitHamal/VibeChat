@@ -153,6 +153,57 @@
                         android:alpha="0.2"
                         android:layout_marginBottom="20dp" />
 
+                    <!-- Email Field -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginBottom="20dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Email"
+                            android:textSize="12sp"
+                            android:textColor="?attr/colorPrimary"
+                            android:fontFamily="@font/poppins_medium"
+                            android:layout_marginBottom="8dp"
+                            android:textAllCaps="true"
+                            android:letterSpacing="0.1" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:src="@drawable/ic_email"
+                                app:tint="?attr/colorOnSurfaceVariant"
+                                android:layout_marginEnd="12dp" />
+
+                            <TextView
+                                android:id="@+id/email_display"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Not specified"
+                                android:textSize="16sp"
+                                android:textColor="?attr/colorOnSurface"
+                                android:fontFamily="@font/poppins"
+                                android:visibility="visible" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="?attr/colorOutline"
+                        android:alpha="0.2"
+                        android:layout_marginBottom="20dp" />
+
                     <!-- Gender Field -->
                     <LinearLayout
                         android:layout_width="match_parent"
