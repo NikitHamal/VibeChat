@@ -572,7 +572,7 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
         SwipeToReplyCallback() {
             super(0, ItemTouchHelper.LEFT);
             icon = ContextCompat.getDrawable(ChatActivity.this, R.drawable.ic_reply);
-            background = new android.graphics.drawable.ColorDrawable(ContextCompat.getColor(ChatActivity.this, R.color.md_theme_primaryContainer));
+            background = new android.graphics.drawable.ColorDrawable(ContextCompat.getColor(ChatActivity.this, R.color.primaryContainer));
         }
 
         @Override
@@ -584,7 +584,7 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
         public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
             int position = viewHolder.getAdapterPosition();
             if (position != RecyclerView.NO_POSITION) {
-                showReplyPreview(messages.get(position));
+                showReplyPreview(messageList.get(position));
                 chatAdapter.notifyItemChanged(position); // To reset the swipe view
             }
         }
