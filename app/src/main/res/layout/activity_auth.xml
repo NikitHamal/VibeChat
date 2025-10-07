@@ -20,27 +20,12 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- App Icon with gradient background -->
-        <com.google.android.material.card.MaterialCardView
+        <!-- App Icon -->
+        <ImageView
             android:layout_width="100dp"
             android:layout_height="100dp"
-            app:cardCornerRadius="28dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="0dp"
-            android:layout_marginBottom="32dp">
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@drawable/bg_auth_icon" />
-
-            <ImageView
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:layout_gravity="center"
-                android:src="@mipmap/ic_launcher_round" />
-
-        </com.google.android.material.card.MaterialCardView>
+            android:src="@mipmap/ic_launcher_round"
+            android:layout_marginBottom="32dp" />
 
         <!-- Welcome Title -->
         <TextView
@@ -150,7 +135,6 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="24dp"
-        android:paddingBottom="32dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
