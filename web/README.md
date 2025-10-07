@@ -78,8 +78,25 @@ web/
    ```
 2.  **Open Browser:** `http://localhost:8000`
 
-### Deployment
-Deploy the `web/` directory to any static hosting service (e.g., Firebase Hosting, Netlify, Vercel). Ensure you handle Firebase credentials securely using environment variables or a similar mechanism.
+### Deployment (Automated with GitHub Actions)
+
+This project is configured for automated deployment to GitHub Pages whenever changes are pushed to the `main` branch. The workflow is defined in `.github/workflows/deploy-web.yml`.
+
+**Security:** The deployment process securely handles your Firebase API keys by using GitHub Repository Secrets. The workflow reads these secrets and injects them into the `firebase-config.js` file at build time. This means your keys are never exposed in the repository.
+
+**Setup Instructions:**
+
+To enable automated deployments, you must add the following secrets to your GitHub repository settings (`Settings > Secrets and variables > Actions > New repository secret`):
+
+- `FIREBASE_API_KEY`: Your Firebase project's API Key.
+- `FIREBASE_AUTH_DOMAIN`: Your Firebase project's auth domain (e.g., `your-project-id.firebaseapp.com`).
+- `FIREBASE_DATABASE_URL`: Your Firebase Realtime Database URL (e.g., `https://your-project-id-default-rtdb.firebaseio.com`).
+- `FIREBASE_PROJECT_ID`: Your Firebase project's ID.
+- `FIREBASE_STORAGE_BUCKET`: Your Firebase project's storage bucket (e.g., `your-project-id.appspot.com`).
+- `FIREBASE_MESSAGING_SENDER_ID`: Your Firebase project's messaging sender ID.
+- `FIREBASE_APP_ID`: Your Firebase web app's ID.
+
+Once these secrets are configured, any push to the `main` branch will automatically update the live site on GitHub Pages.
 
 ## 💾 Data Persistence
 - **User Data & Chat:** Firebase Realtime Database
