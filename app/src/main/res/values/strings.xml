@@ -31,4 +31,5 @@
         <item>dark</item>
         <item>system</item>
     </string-array>
+    <string name="typing_indicator_text">Typing...</string>
 </resources>
