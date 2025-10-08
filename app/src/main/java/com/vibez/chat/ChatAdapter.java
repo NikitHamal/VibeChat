@@ -107,28 +107,39 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         TextView messageText, replyQuoteName, replyQuoteText;
         LinearLayout reactionContainer;
         View replyQuoteLayout;
+        View messageContentLayout; // New reference to the main bubble
         private final GestureDetector gestureDetector;
+        private final int originalMessageTextPaddingTop;
+        private final int reducedMessageTextPaddingTop;
 
         SentMessageViewHolder(View itemView, OnMessageInteractionListener listener) {
             super(itemView);
+            messageContentLayout = itemView.findViewById(R.id.message_content_layout); // Correct view
             messageText = itemView.findViewById(R.id.message_text);
             reactionContainer = itemView.findViewById(R.id.reaction_container);
             replyQuoteLayout = itemView.findViewById(R.id.reply_quote_layout);
             replyQuoteName = itemView.findViewById(R.id.reply_quote_name);
             replyQuoteText = itemView.findViewById(R.id.reply_quote_text);
+            originalMessageTextPaddingTop = messageText.getPaddingTop();
+            reducedMessageTextPaddingTop = (int) (4 * itemView.getContext().getResources().getDisplayMetrics().density); // 4dp
 
             gestureDetector = new GestureDetector(itemView.getContext(), new GestureDetector.SimpleOnGestureListener() {
                 @Override
                 public boolean onDoubleTap(android.view.MotionEvent e) {
-                    listener.onMessageDoubleTapped(messageList.get(getAdapterPosition()));
+                    if (getAdapterPosition() != RecyclerView.NO_POSITION) {
+                        listener.onMessageDoubleTapped(messageList.get(getAdapterPosition()));
+                    }
                     return true;
                 }
             });
 
-            itemView.setOnTouchListener((v, event) -> gestureDetector.onTouchEvent(event));
+            // Attach listeners to the correct layout
+            messageContentLayout.setOnTouchListener((v, event) -> gestureDetector.onTouchEvent(event));
 
-            itemView.setOnLongClickListener(v -> {
-                listener.onMessageLongClicked(messageList.get(getAdapterPosition()));
+            messageContentLayout.setOnLongClickListener(v -> {
+                if (getAdapterPosition() != RecyclerView.NO_POSITION) {
+                    listener.onMessageLongClicked(messageList.get(getAdapterPosition()));
+                }
                 return true;
             });
         }
@@ -147,11 +158,17 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     boolean isReplyToSelf = originalMessage.getSenderId().equals(currentUserId);
                     replyQuoteName.setText(isReplyToSelf ? "You" : strangerName);
                     replyQuoteText.setText(originalMessage.getText());
+                    // Reduce top padding of message when reply is visible
+                    messageText.setPadding(messageText.getPaddingLeft(), reducedMessageTextPaddingTop, messageText.getPaddingRight(), messageText.getPaddingBottom());
                 } else {
                     replyQuoteLayout.setVisibility(View.GONE);
+                    // Restore original padding if reply data is missing
+                    messageText.setPadding(messageText.getPaddingLeft(), originalMessageTextPaddingTop, messageText.getPaddingRight(), messageText.getPaddingBottom());
                 }
             } else {
                 replyQuoteLayout.setVisibility(View.GONE);
+                // Restore original padding if not a reply
+                messageText.setPadding(messageText.getPaddingLeft(), originalMessageTextPaddingTop, messageText.getPaddingRight(), messageText.getPaddingBottom());
             }
         }
 
@@ -183,28 +200,39 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         TextView messageText, replyQuoteName, replyQuoteText;
         LinearLayout reactionContainer;
         View replyQuoteLayout;
+        View messageContentLayout; // New reference to the main bubble
         private final GestureDetector gestureDetector;
+        private final int originalMessageTextPaddingTop;
+        private final int reducedMessageTextPaddingTop;
 
         ReceivedMessageViewHolder(View itemView, OnMessageInteractionListener listener) {
             super(itemView);
+            messageContentLayout = itemView.findViewById(R.id.message_content_layout); // Correct view
             messageText = itemView.findViewById(R.id.message_text);
             reactionContainer = itemView.findViewById(R.id.reaction_container);
             replyQuoteLayout = itemView.findViewById(R.id.reply_quote_layout);
             replyQuoteName = itemView.findViewById(R.id.reply_quote_name);
             replyQuoteText = itemView.findViewById(R.id.reply_quote_text);
+            originalMessageTextPaddingTop = messageText.getPaddingTop();
+            reducedMessageTextPaddingTop = (int) (4 * itemView.getContext().getResources().getDisplayMetrics().density); // 4dp
 
             gestureDetector = new GestureDetector(itemView.getContext(), new GestureDetector.SimpleOnGestureListener() {
                 @Override
                 public boolean onDoubleTap(android.view.MotionEvent e) {
-                    listener.onMessageDoubleTapped(messageList.get(getAdapterPosition()));
+                    if (getAdapterPosition() != RecyclerView.NO_POSITION) {
+                        listener.onMessageDoubleTapped(messageList.get(getAdapterPosition()));
+                    }
                     return true;
                 }
             });
 
-            itemView.setOnTouchListener((v, event) -> gestureDetector.onTouchEvent(event));
+            // Attach listeners to the correct layout
+            messageContentLayout.setOnTouchListener((v, event) -> gestureDetector.onTouchEvent(event));
 
-            itemView.setOnLongClickListener(v -> {
-                listener.onMessageLongClicked(messageList.get(getAdapterPosition()));
+            messageContentLayout.setOnLongClickListener(v -> {
+                if (getAdapterPosition() != RecyclerView.NO_POSITION) {
+                    listener.onMessageLongClicked(messageList.get(getAdapterPosition()));
+                }
                 return true;
             });
         }
@@ -223,11 +251,17 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     boolean isReplyToSelf = originalMessage.getSenderId().equals(currentUserId);
                     replyQuoteName.setText(isReplyToSelf ? "You" : strangerName);
                     replyQuoteText.setText(originalMessage.getText());
+                    // Reduce top padding of message when reply is visible
+                    messageText.setPadding(messageText.getPaddingLeft(), reducedMessageTextPaddingTop, messageText.getPaddingRight(), messageText.getPaddingBottom());
                 } else {
                     replyQuoteLayout.setVisibility(View.GONE);
+                    // Restore original padding if reply data is missing
+                    messageText.setPadding(messageText.getPaddingLeft(), originalMessageTextPaddingTop, messageText.getPaddingRight(), messageText.getPaddingBottom());
                 }
             } else {
                 replyQuoteLayout.setVisibility(View.GONE);
+                // Restore original padding if not a reply
+                messageText.setPadding(messageText.getPaddingLeft(), originalMessageTextPaddingTop, messageText.getPaddingRight(), messageText.getPaddingBottom());
             }
         }
 

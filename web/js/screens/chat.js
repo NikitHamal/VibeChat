@@ -143,7 +143,7 @@ export default class ChatScreen {
         clearTimeout(this.matchmakingTimeout);
         this.isMatchmaking = false;
         if (this.myQueueRef) {
-            remove(this.myQueueRef);
+            remove(this.myQueueRef); // Ensure the backend queue is cleared
             this.myQueueRef = null;
         }
         if (this.queueListener) {
@@ -151,6 +151,8 @@ export default class ChatScreen {
             queueRef.off('value', this.queueListener);
             this.queueListener = null;
         }
+        // Immediately hide the overlay for instant feedback
+        this.loadingOverlay.classList.remove('active');
         this.app.navigate('home');
     }
 

@@ -5,6 +5,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -66,8 +68,12 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
     private java.util.Map<String, Message> messageMap;
     private String chatRoomId;
     private String otherUserId;
+    private String otherUserName;
     private boolean isMatchmaking = false;
+    private boolean isFirstMessageSent = false;
     private ValueEventListener queueListener;
+    private ValueEventListener participantListener;
+    private DatabaseReference otherUserParticipantRef;
 
     // Typing Indicator
     private DatabaseReference mTypingRef;
@@ -82,6 +88,10 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
     private View replyPreviewLayout;
     private TextView replyPreviewName;
     private TextView replyPreviewText;
+
+    // Suggestion Chips
+    private HorizontalScrollView suggestionChipsLayout;
+    private LinearLayout suggestionChipContainer;
 
 
     @Override
@@ -124,6 +134,8 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
         replyPreviewLayout = findViewById(R.id.reply_preview_layout);
         replyPreviewName = findViewById(R.id.reply_preview_name);
         replyPreviewText = findViewById(R.id.reply_preview_text);
+        suggestionChipsLayout = findViewById(R.id.suggestion_chips_layout);
+        suggestionChipContainer = findViewById(R.id.suggestion_chip_container);
         findViewById(R.id.cancel_reply_button).setOnClickListener(v -> hideReplyPreview());
     }
 
@@ -273,14 +285,14 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 User stranger = snapshot.getValue(User.class);
                 if (stranger != null) {
-                    String name = stranger.getName();
-                    strangerNameTextView.setText(name);
+                    otherUserName = stranger.getName(); // Store stranger's name
+                    strangerNameTextView.setText(otherUserName);
 
                     // Re-create the adapter with the stranger's name for reply quotes
-                    chatAdapter = new ChatAdapter(messageList, messageMap, name, ChatActivity.this);
+                    chatAdapter = new ChatAdapter(messageList, messageMap, otherUserName, ChatActivity.this);
                     chatRecyclerView.setAdapter(chatAdapter);
 
-                    if ("Anonymous".equals(name)) {
+                    if ("Anonymous".equals(otherUserName)) {
                         strangerDetailsTextView.setVisibility(View.GONE);
                         strangerFlagTextView.setText("🤫");
                     } else {
@@ -289,6 +301,12 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
                         strangerFlagTextView.setText(getFlagFromCountry(stranger.getCountry()));
                         strangerFlagTextView.setVisibility(View.VISIBLE);
                     }
+
+                    // --- NEW: System Messages and Suggestions ---
+                    sendSystemMessage("You're now chatting with " + otherUserName + ". Be nice!");
+                    populateSuggestionChips();
+                    listenForParticipantChanges();
+                    // -----------------------------------------
                 }
             }
             @Override
@@ -360,40 +378,99 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
 
     private void sendMessage() {
         String messageText = messageEditText.getText().toString().trim();
-        if (!messageText.isEmpty() && mChatRoomRef != null) {
-            String messageId = mChatRoomRef.child("messages").push().getKey();
-            if (messageId != null) {
-                Message message = new Message(messageId, messageText, currentUser.getUid(), System.currentTimeMillis(), "text");
-                if (messageToReply != null) {
-                    message.setReplyToMessageId(messageToReply.getMessageId());
-                }
-                mChatRoomRef.child("messages").child(messageId).setValue(message);
-                messageEditText.setText("");
-                hideReplyPreview();
-            }
+        if (!messageText.isEmpty()) {
+            sendMessage(messageText);
+            messageEditText.setText("");
         }
     }
 
-    private void leaveChat(boolean isBackPressed) {
-        if (mChatRoomRef != null && currentUser != null) {
-            // 1. Send "User left" system message
-            String messageId = mChatRoomRef.child("messages").push().getKey();
-            if (messageId != null) {
-                Message systemMessage = new Message(messageId, "User left the chat", "system", System.currentTimeMillis(), "system");
-                mChatRoomRef.child("messages").child(messageId).setValue(systemMessage);
+    private void sendMessage(String text) {
+        if (mChatRoomRef == null) return;
+
+        // Hide suggestions on first message
+        if (!isFirstMessageSent) {
+            hideSuggestionChips();
+            isFirstMessageSent = true;
+        }
+
+        String messageId = mChatRoomRef.child("messages").push().getKey();
+        if (messageId != null) {
+            Message message = new Message(messageId, text, currentUser.getUid(), System.currentTimeMillis(), "text");
+            if (messageToReply != null) {
+                message.setReplyToMessageId(messageToReply.getMessageId());
+            }
+            mChatRoomRef.child("messages").child(messageId).setValue(message);
+            hideReplyPreview();
+        }
+    }
+
+    private void sendSystemMessage(String text) {
+        if (mChatRoomRef == null) return;
+        String messageId = mChatRoomRef.child("messages").push().getKey();
+        if (messageId != null) {
+            Message systemMessage = new Message(messageId, text, "system", System.currentTimeMillis(), "system");
+            mChatRoomRef.child("messages").child(messageId).setValue(systemMessage);
+        }
+    }
+
+    private void populateSuggestionChips() {
+        suggestionChipContainer.removeAllViews(); // Clear any old chips
+        String[] suggestions = {"Hi!", "Hey", "Hello", "ASL?", "What's up?"};
+
+        for (String suggestionText : suggestions) {
+            View chipView = LayoutInflater.from(this).inflate(R.layout.item_suggestion_chip, suggestionChipContainer, false);
+            TextView chipTextView = chipView.findViewById(R.id.chip_text);
+            chipTextView.setText(suggestionText);
+            chipView.setOnClickListener(v -> {
+                sendMessage(suggestionText);
+            });
+            suggestionChipContainer.addView(chipView);
+        }
+        suggestionChipsLayout.setVisibility(View.VISIBLE);
+    }
+
+    private void hideSuggestionChips() {
+        suggestionChipsLayout.setVisibility(View.GONE);
+    }
+
+
+    private void listenForParticipantChanges() {
+        if (mChatRoomRef == null || otherUserId == null) return;
+        otherUserParticipantRef = mChatRoomRef.child("participants").child(otherUserId);
+
+        participantListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                Participant participant = snapshot.getValue(Participant.class);
+                if (participant != null && "left".equals(participant.getStatus())) {
+                    sendSystemMessage(otherUserName + " has left the chat.");
+                    // Remove listener after triggering once
+                    if (otherUserParticipantRef != null && participantListener != null) {
+                        otherUserParticipantRef.removeEventListener(participantListener);
+                    }
+                }
             }
 
-            // 2. Update participant status to "left"
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        };
+        otherUserParticipantRef.addValueEventListener(participantListener);
+    }
+
+
+    private void leaveChat(boolean isBackPressed) {
+        if (mChatRoomRef != null && currentUser != null) {
+            // 1. Update participant status to "left"
             DatabaseReference participantRef = mChatRoomRef.child("participants").child(currentUser.getUid());
             participantRef.setValue(new Participant("left", System.currentTimeMillis()));
 
-            // 3. Check if both participants have left to delete the chat
+            // 2. Check if both participants have left to delete the chat
             checkAndDeleteChatRoom();
 
-            // 4. Handle exit behavior
+            // 3. Handle exit behavior
             if (isBackPressed) {
-                // Delayed exit for back press
-                new android.os.Handler().postDelayed(this::finish, 1000);
+                // Delayed exit for back press to allow "left" status to propagate
+                new android.os.Handler().postDelayed(this::finish, 500);
             } else {
                 // Immediate exit for "Next" button
                 finish();
@@ -624,16 +701,21 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
     protected void onDestroy() {
         super.onDestroy();
         // Clean up matchmaking listeners
-        if (isMatchmaking) {
+        if (isMatchmaking && currentUser != null) {
             mQueueRef.child(currentUser.getUid()).removeValue();
         }
         if (queueListener != null && currentUser != null) {
             mQueueRef.child(currentUser.getUid()).removeEventListener(queueListener);
         }
 
+        // Clean up participant listener
+        if (otherUserParticipantRef != null && participantListener != null) {
+            otherUserParticipantRef.removeEventListener(participantListener);
+        }
+
         // Clean up typing indicator resources
         if (mTypingRef != null && currentUser != null) {
-            mTypingRef.child(currentUser.getUid().toString()).setValue(false); // Clear own typing status
+            mTypingRef.child(currentUser.getUid()).setValue(false); // Clear own typing status
             if (typingListener != null && otherUserId != null) {
                 mTypingRef.child(otherUserId).removeEventListener(typingListener);
             }
