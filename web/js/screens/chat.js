@@ -139,19 +139,33 @@ export default class ChatScreen {
         });
     }
 
-    cancelMatchmaking() {
-        clearTimeout(this.matchmakingTimeout);
+    async cancelMatchmaking() {
+        // Guard clause to prevent multiple calls
+        if (!this.isMatchmaking) return;
+
         this.isMatchmaking = false;
-        if (this.myQueueRef) {
-            remove(this.myQueueRef); // Ensure the backend queue is cleared
-            this.myQueueRef = null;
-        }
+        clearTimeout(this.matchmakingTimeout);
+
+        // Detach the listener first to stop processing queue updates
         if (this.queueListener) {
             const queueRef = ref(database, 'queue');
             queueRef.off('value', this.queueListener);
             this.queueListener = null;
         }
-        // Immediately hide the overlay for instant feedback
+
+        // Remove user from the backend queue
+        if (this.myQueueRef) {
+            try {
+                await remove(this.myQueueRef);
+            } catch (error) {
+                console.error("Failed to remove user from queue:", error);
+                // Even if backend fails, proceed with UI cleanup
+            } finally {
+                this.myQueueRef = null;
+            }
+        }
+
+        // Update UI and navigate, ensuring the user is never stuck
         this.loadingOverlay.classList.remove('active');
         this.app.navigate('home');
     }

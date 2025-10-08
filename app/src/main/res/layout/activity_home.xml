@@ -134,7 +134,7 @@
                     <ImageView
                         android:layout_width="48dp"
                         android:layout_height="48dp"
-                        android:src="@drawable/ic_person"
+                        android:src="@drawable/ic_domino_mask"
                         app:tint="?attr/colorPrimary"
                         android:layout_marginBottom="16dp"/>
 
