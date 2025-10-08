@@ -152,9 +152,9 @@
     border: 1px solid var(--outline);
 }
 
-.anonymous-card .material-symbols-outlined {
-    font-size: 48px;
-    color: var(--primary);
+.anonymous-card .anonymous-icon {
+    width: 48px;
+    height: 48px;
     margin-bottom: var(--space-lg);
 }
 

@@ -90,8 +90,8 @@ export default class ChatScreen {
         if (this.isMatchmaking && this.myQueueRef) {
             remove(this.myQueueRef);
         }
-        if (this.queueListener && this.myQueueRef) {
-            this.myQueueRef.off('value', this.queueListener);
+        if (this.queueListener) {
+            ref(database, 'queue').off('value', this.queueListener);
         }
         this.myQueueRef = null;
         this.queueListener = null;
