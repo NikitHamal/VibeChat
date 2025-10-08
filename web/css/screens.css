@@ -153,9 +153,10 @@
 }
 
 .anonymous-card .anonymous-icon {
-    width: 48px;
-    height: 48px;
+    font-size: 48px;
+    color: var(--primary);
     margin-bottom: var(--space-lg);
+    display: block; /* Ensure it takes up space */
 }
 
 .anonymous-card h3 {
