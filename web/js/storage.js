@@ -2,6 +2,9 @@
 export class Storage {
     static KEYS = {
         THEME: 'vibez_theme',
+        USERNAME: 'vibez_username',
+        GENDER: 'vibez_gender',
+        AGE: 'vibez_age',
     };
 
     // Get item from localStorage
@@ -33,6 +36,22 @@ export class Storage {
 
     static setTheme(theme) {
         return Storage.set(Storage.KEYS.THEME, theme);
+    }
+
+    // User profile management
+    static getUserProfile() {
+        return {
+            username: Storage.get(Storage.KEYS.USERNAME, ''),
+            gender: Storage.get(Storage.KEYS.GENDER, ''),
+            age: Storage.get(Storage.KEYS.AGE, ''),
+        };
+    }
+
+    static setUserProfile(profile) {
+        const { username, gender, age } = profile;
+        Storage.set(Storage.KEYS.USERNAME, username || '');
+        Storage.set(Storage.KEYS.GENDER, gender || '');
+        Storage.set(Storage.KEYS.AGE, age || '');
     }
 }
 

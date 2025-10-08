@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#6750A4">
     <meta name="description" content="VibeZ - Connect with strangers around the world">
     <title>VibeZ - Random Chat</title>
-    <link rel="icon" href="app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png" type="image/png">
+    <link rel="icon" href="web/assets/images/logo.svg" type="image/svg+xml">
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,7 +27,7 @@
         <!-- Splash Screen -->
         <div id="splash-screen" class="screen active">
             <div class="splash-content">
-                <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png" alt="VibeZ Logo" class="splash-icon">
+                <img src="web/assets/images/logo.svg" alt="VibeZ Logo" class="splash-icon">
             </div>
         </div>
 
@@ -35,7 +35,7 @@
         <div id="auth-screen" class="screen">
             <div class="auth-content">
                 <div class="auth-welcome">
-                    <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png" alt="VibeZ Logo" class="auth-logo" onerror="this.style.display='none'">
+                    <img src="web/assets/images/logo.svg" alt="VibeZ Logo" class="auth-logo">
                     <h1 class="auth-title">Welcome to VibeZ</h1>
                     <p class="auth-subtitle">Connect with strangers around the world</p>
                     
@@ -90,22 +90,28 @@
             </div>
 
             <div class="home-content">
-                <h2 class="home-title">Find a Stranger</h2>
-                <p class="home-subtitle">Enter your details to start chatting.</p>
+                <div id="user-details-form">
+                    <h2 class="home-title">Find a Stranger</h2>
+                    <p class="home-subtitle">Enter your details to start chatting.</p>
 
-                <div class="input-container">
-                    <span class="material-symbols-outlined">person</span>
-                    <input type="text" id="username-input" placeholder="Username" class="text-input">
+                    <div class="input-container">
+                        <span class="material-symbols-outlined">person</span>
+                        <input type="text" id="username-input" placeholder="Username" class="text-input">
+                    </div>
+                    <div class="input-container clickable" id="gender-container">
+                        <span class="material-symbols-outlined">account_circle</span>
+                        <span id="gender-display" class="input-text">Gender</span>
+                    </div>
+                    <div class="input-container">
+                        <span class="material-symbols-outlined">cake</span>
+                        <input type="number" id="age-input" placeholder="Age" class="text-input">
+                    </div>
                 </div>
 
-                <div class="input-container clickable" id="gender-container">
-                    <span class="material-symbols-outlined">account_circle</span>
-                    <span id="gender-display" class="input-text">Gender</span>
-                </div>
-
-                <div class="input-container">
-                    <span class="material-symbols-outlined">cake</span>
-                    <input type="number" id="age-input" placeholder="Age" class="text-input">
+                <div id="anonymous-mode-card" class="anonymous-card" style="display: none;">
+                    <span class="material-symbols-outlined">incognito</span>
+                    <h3>Anonymous Mode</h3>
+                    <p>Your identity is hidden. Chat freely and securely.</p>
                 </div>
 
                 <button id="start-chat-btn" class="btn-primary">

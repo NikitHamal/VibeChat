@@ -17,6 +17,7 @@ import com.google.android.material.color.MaterialColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import android.content.SharedPreferences;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -29,10 +30,13 @@ public class HomeActivity extends AppCompatActivity {
     private EditText usernameEditText, ageEditText;
     private TextView genderTextView;
     private MaterialButton startChatButton;
+    private View userDetailsForm;
+    private View anonymousModeCard;
 
     private FirebaseAuth mAuth;
     private DatabaseReference mUsersRef;
     private FirebaseUser currentUser;
+    private SharedPreferences sharedPreferences;
 
     private final String[] genders = {"Male", "Female", "Other"};
     private int selectedGenderIndex = -1;
@@ -42,6 +46,7 @@ public class HomeActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
 
+        sharedPreferences = getSharedPreferences("VibezPrefs", MODE_PRIVATE);
         initializeFirebase();
         initializeViews();
         setSupportActionBar(toolbar);
@@ -66,6 +71,8 @@ public class HomeActivity extends AppCompatActivity {
         ageEditText = findViewById(R.id.age_edit_text);
         genderTextView = findViewById(R.id.gender_text_view);
         startChatButton = findViewById(R.id.start_chat_button);
+        userDetailsForm = findViewById(R.id.user_details_form);
+        anonymousModeCard = findViewById(R.id.anonymous_mode_card);
     }
 
     private void setupListeners() {
@@ -89,32 +96,89 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void loadUserData() {
+        if (currentUser.isAnonymous()) {
+            userDetailsForm.setVisibility(View.GONE);
+            anonymousModeCard.setVisibility(View.VISIBLE);
+        } else {
+            userDetailsForm.setVisibility(View.VISIBLE);
+            anonymousModeCard.setVisibility(View.GONE);
+            loadUserDataFromCache();
+            loadUserDataFromFirebase();
+        }
+    }
+
+    private void loadUserDataFromCache() {
+        String name = sharedPreferences.getString("name", "");
+        String gender = sharedPreferences.getString("gender", "");
+        int age = sharedPreferences.getInt("age", 0);
+
+        usernameEditText.setText(name);
+        if (age > 0) {
+            ageEditText.setText(String.valueOf(age));
+        }
+        if (gender != null && !gender.isEmpty()) {
+            genderTextView.setText(gender);
+            genderTextView.setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface, 0));
+            for (int i = 0; i < genders.length; i++) {
+                if (genders[i].equals(gender)) {
+                    selectedGenderIndex = i;
+                    break;
+                }
+            }
+        }
+    }
+
+    private void loadUserDataFromFirebase() {
         mUsersRef.child(currentUser.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                User user = snapshot.getValue(User.class);
+                User user;
+                if (snapshot.exists()) {
+                    user = snapshot.getValue(User.class);
+                } else {
+                    user = new User(currentUser.getUid(), currentUser.getDisplayName(), "", 0, "",
+                            currentUser.getPhotoUrl() != null ? currentUser.getPhotoUrl().toString() : "");
+                    mUsersRef.child(currentUser.getUid()).setValue(user);
+                }
                 if (user != null) {
-                    usernameEditText.setText(user.getName());
-                    if (user.getAge() > 0) {
-                        ageEditText.setText(String.valueOf(user.getAge()));
-                    }
-                    if (user.getGender() != null && !user.getGender().isEmpty()) {
-                        genderTextView.setText(user.getGender());
-                        genderTextView.setTextColor(MaterialColors.getColor(HomeActivity.this, com.google.android.material.R.attr.colorOnSurface, 0));
-                        for (int i = 0; i < genders.length; i++) {
-                            if (genders[i].equals(user.getGender())) {
-                                selectedGenderIndex = i;
-                                break;
-                            }
-                        }
-                    }
+                    updateUIAndCache(user);
                 }
             }
+
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Toast.makeText(HomeActivity.this, "Failed to load user data.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(HomeActivity.this, "Failed to sync user data.", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void updateUIAndCache(User user) {
+        usernameEditText.setText(user.getName());
+        if (user.getAge() > 0) {
+            ageEditText.setText(String.valueOf(user.getAge()));
+        } else {
+            ageEditText.setText("");
+        }
+
+        if (user.getGender() != null && !user.getGender().isEmpty()) {
+            genderTextView.setText(user.getGender());
+            genderTextView.setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface, 0));
+            for (int i = 0; i < genders.length; i++) {
+                if (genders[i].equals(user.getGender())) {
+                    selectedGenderIndex = i;
+                    break;
+                }
+            }
+        } else {
+            genderTextView.setText(getString(R.string.gender));
+            genderTextView.setTextColor(getResources().getColor(R.color.design_default_color_on_surface, getTheme()));
+        }
+
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString("name", user.getName());
+        editor.putString("gender", user.getGender());
+        editor.putInt("age", user.getAge());
+        editor.apply();
     }
 
     private void showGenderSelectionDialog() {
@@ -131,6 +195,16 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void startChat() {
+        if (currentUser.isAnonymous()) {
+            DatabaseReference currentUserRef = mUsersRef.child(currentUser.getUid());
+            currentUserRef.child("name").setValue("Anonymous");
+            currentUserRef.child("gender").setValue("Not specified");
+            currentUserRef.child("age").setValue(0);
+            Intent intent = new Intent(HomeActivity.this, ChatActivity.class);
+            startActivity(intent);
+            return;
+        }
+
         String username = usernameEditText.getText().toString().trim();
         String ageStr = ageEditText.getText().toString().trim();
         String gender = genderTextView.getText().toString().trim();
@@ -140,19 +214,26 @@ public class HomeActivity extends AppCompatActivity {
             return;
         }
 
-        saveUserDataToFirebase(username, gender, Integer.parseInt(ageStr));
+        saveUserData(username, gender, Integer.parseInt(ageStr));
 
-        // Directly navigate to ChatActivity
         Intent intent = new Intent(HomeActivity.this, ChatActivity.class);
         startActivity(intent);
     }
 
-    private void saveUserDataToFirebase(String username, String gender, int age) {
+    private void saveUserData(String username, String gender, int age) {
         if (currentUser != null) {
+            // Save to Firebase
             DatabaseReference currentUserRef = mUsersRef.child(currentUser.getUid());
             currentUserRef.child("name").setValue(username);
             currentUserRef.child("gender").setValue(gender);
             currentUserRef.child("age").setValue(age);
+
+            // Save to SharedPreferences
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putString("name", username);
+            editor.putString("gender", gender);
+            editor.putInt("age", age);
+            editor.apply();
         }
     }
 }

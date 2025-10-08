@@ -13,6 +13,8 @@ export default class HomeScreen {
         this.genderDisplay = document.getElementById('gender-display');
         this.ageInput = document.getElementById('age-input');
         this.startChatBtn = document.getElementById('start-chat-btn');
+        this.userDetailsForm = document.getElementById('user-details-form');
+        this.anonymousCard = document.getElementById('anonymous-mode-card');
         
         this.selectedGender = '';
         this.genders = ['Male', 'Female', 'Other'];
@@ -33,9 +35,16 @@ export default class HomeScreen {
     onEnter(data) {
         if (data && data.user) {
             this.currentUser = data.user;
-            this.loadUserData();
+            if (this.currentUser.isAnonymous) {
+                this.userDetailsForm.style.display = 'none';
+                this.anonymousCard.style.display = 'block';
+            } else {
+                this.userDetailsForm.style.display = 'block';
+                this.anonymousCard.style.display = 'none';
+                this.loadProfileFromCache(); // Load cached data for instant UI
+                this.loadProfileFromFirebase(); // Sync with Firebase
+            }
         } else {
-            // Handle case where user is not passed, maybe navigate to auth
             this.app.navigate('auth');
         }
     }
@@ -44,20 +53,43 @@ export default class HomeScreen {
         // Clean up if needed
     }
 
-    async loadUserData() {
+    loadProfileFromCache() {
+        const profile = Storage.getUserProfile();
+        this.usernameInput.value = profile.username || '';
+        if (profile.gender) {
+            this.selectedGender = profile.gender;
+            this.genderDisplay.textContent = profile.gender;
+            this.genderDisplay.classList.add('filled');
+        } else {
+            this.selectedGender = '';
+            this.genderDisplay.textContent = 'Gender';
+            this.genderDisplay.classList.remove('filled');
+        }
+        this.ageInput.value = profile.age || '';
+    }
+
+    async loadProfileFromFirebase() {
         const userRef = ref(database, 'users/' + this.currentUser.uid);
         const snapshot = await get(userRef);
-        const userExists = snapshot.exists();
-        const userData = userExists ? snapshot.val() : {};
 
-        // Pre-fill with Google data for new users
-        if (this.currentUser.providerData[0].providerId === 'google.com' && !userExists) {
-            userData.name = this.currentUser.displayName;
-            userData.email = this.currentUser.email;
-            userData.photoURL = this.currentUser.photoURL;
+        if (!snapshot.exists()) {
+             // If no profile in DB, create one from auth details
+            const newUserData = {
+                name: this.currentUser.displayName || 'User',
+                email: this.currentUser.email,
+                photoURL: this.currentUser.photoURL,
+                gender: '',
+                age: ''
+            };
+            await set(userRef, newUserData);
+            this.updateUIAndCache(newUserData);
+        } else {
+            this.updateUIAndCache(snapshot.val());
         }
+    }
 
-        // Populate form
+    updateUIAndCache(userData) {
+        // Update UI
         this.usernameInput.value = userData.name || '';
         if (userData.gender) {
             this.selectedGender = userData.gender;
@@ -66,21 +98,12 @@ export default class HomeScreen {
         }
         this.ageInput.value = userData.age || '';
 
-        // Get country if not present
-        if (!userData.country) {
-            try {
-                const response = await fetch('https://ipapi.co/json/');
-                userData.country = (await response.json()).country_code || 'Unknown';
-            } catch (error) {
-                console.error('Error fetching country:', error);
-                userData.country = 'Unknown';
-            }
-        }
-        
-        // Save initial data if it's a new user
-        if (!userExists) {
-            await set(userRef, userData);
-        }
+        // Update local storage cache
+        Storage.setUserProfile({
+            username: userData.name,
+            gender: userData.gender,
+            age: userData.age
+        });
     }
 
     showGenderDialog() {
@@ -108,6 +131,11 @@ export default class HomeScreen {
     }
 
     async startChat() {
+        if (this.currentUser.isAnonymous) {
+            this.app.navigate('chat');
+            return;
+        }
+
         const name = this.usernameInput.value.trim();
         const age = this.ageInput.value.trim();
         const gender = this.selectedGender;
@@ -117,12 +145,21 @@ export default class HomeScreen {
             return;
         }
 
-        // Save user data to Firebase
-        const userRef = ref(database, 'users/' + this.currentUser.uid);
-        await update(userRef, {
+        const profileData = {
             name,
-            age: parseInt(age),
+            age: parseInt(age, 10),
             gender
+        };
+
+        // Save to Firebase
+        const userRef = ref(database, 'users/' + this.currentUser.uid);
+        await update(userRef, profileData);
+
+        // Save to local cache
+        Storage.setUserProfile({
+            username: name,
+            gender: gender,
+            age: age
         });
 
         // Navigate to chat

@@ -1,6 +1,6 @@
 // Chat Screen Controller
 import { auth, database } from '../firebase.js';
-import { ref, set, get, onValue, runTransaction, remove, push, serverTimestamp, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { ref, set, get, onValue, runTransaction, remove, push, serverTimestamp, onDisconnect, onChildAdded, onChildChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 export default class ChatScreen {
     constructor(app) {
@@ -125,105 +125,119 @@ export default class ChatScreen {
 
         this.myQueueRef = ref(database, 'queue/' + this.currentUser.uid);
         
-        // Use onDisconnect to handle unexpected exits
         onDisconnect(this.myQueueRef).remove();
 
         set(this.myQueueRef, true).then(() => {
             this.listenForMatch();
-            this.findAndClaimMatch();
+            // Start a timeout to avoid getting stuck
+            this.matchmakingTimeout = setTimeout(() => {
+                if (this.isMatchmaking) {
+                    this.app.showToast("No users found. Please try again later.");
+                    this.cancelMatchmaking();
+                }
+            }, 30000); // 30-second timeout
         });
     }
 
     cancelMatchmaking() {
+        clearTimeout(this.matchmakingTimeout);
         this.isMatchmaking = false;
         if (this.myQueueRef) {
             remove(this.myQueueRef);
             this.myQueueRef = null;
         }
+        if (this.queueListener) {
+            const queueRef = ref(database, 'queue');
+            queueRef.off('value', this.queueListener);
+            this.queueListener = null;
+        }
         this.app.navigate('home');
     }
 
     listenForMatch() {
-        this.queueListener = onValue(this.myQueueRef, (snapshot) => {
-            if (this.isMatchmaking && snapshot.exists() && snapshot.hasChild("matchedWith")) {
+        const queueRef = ref(database, 'queue');
+        this.queueListener = onValue(queueRef, (snapshot) => {
+            if (!this.isMatchmaking) {
+                queueRef.off('value', this.queueListener);
+                return;
+            }
+
+            const queue = snapshot.val();
+            if (!queue) return;
+
+            const myQueueEntry = queue[this.currentUser.uid];
+            if (myQueueEntry && typeof myQueueEntry === 'object' && myQueueEntry.matchedWith) {
                 this.isMatchmaking = false;
-                const matchData = snapshot.val();
-                this.chatRoomId = matchData.chatRoomId;
-                this.otherUserId = matchData.matchedWith;
+                clearTimeout(this.matchmakingTimeout);
+                this.chatRoomId = myQueueEntry.chatRoomId;
+                this.otherUserId = myQueueEntry.matchedWith;
+                this.connectToChat();
+                return;
+            }
 
-                if (this.chatRoomId && this.otherUserId) {
-                    remove(this.myQueueRef); // Clean up my queue entry
-                    this.loadingOverlay.classList.remove('active');
-                    this.element.querySelector('.chat-toolbar').style.visibility = 'visible';
-
-                    this.fetchAndDisplayStrangerInfo(this.otherUserId);
-                    this.listenForMessages();
-                    this.setupTypingIndicator();
+            for (const otherUserId in queue) {
+                if (otherUserId !== this.currentUser.uid && queue[otherUserId] === true) {
+                    if (this.currentUser.uid < otherUserId) {
+                        this.attemptToClaim(otherUserId);
+                    }
+                    break;
                 }
             }
         });
     }
 
-    async findAndClaimMatch() {
-        const queueRef = ref(database, 'queue');
-        const snapshot = await get(queueRef);
-        if (!this.isMatchmaking) return;
-
-        let matchFound = false;
-        if (snapshot.exists()) {
-            for (const [otherUserId, value] of Object.entries(snapshot.val())) {
-                if (otherUserId !== this.currentUser.uid && value === true) {
-                    await this.attemptToClaim(otherUserId);
-                    matchFound = true;
-                    break;
-                }
-            }
+    connectToChat() {
+        if (this.queueListener) {
+            ref(database, 'queue').off('value', this.queueListener);
+            this.queueListener = null;
         }
+        if (this.myQueueRef) {
+            remove(this.myQueueRef);
+        }
+
+        this.loadingOverlay.classList.remove('active');
+        this.element.querySelector('.chat-toolbar').style.visibility = 'visible';
+
+        this.fetchAndDisplayStrangerInfo(this.otherUserId);
+        this.listenForMessages();
+        this.setupTypingIndicator();
     }
 
     async attemptToClaim(otherUserId) {
+        if (!this.isMatchmaking) return;
+
         const otherUserRef = ref(database, 'queue/' + otherUserId);
-        
+        const newChatRoomId = push(ref(database, 'chats')).key;
+
         try {
             const result = await runTransaction(otherUserRef, (currentData) => {
                 if (currentData === true) {
-                    const newChatRoomId = push(ref(database, 'chats')).key;
-                    return {
-                        matchedWith: this.currentUser.uid,
-                        chatRoomId: newChatRoomId
-                    };
+                    return { matchedWith: this.currentUser.uid, chatRoomId: newChatRoomId };
                 }
-                return; // Abort transaction
+                return; // Abort
             });
 
             if (result.committed) {
-                const matchedChatRoomId = result.snapshot.child("chatRoomId").val();
+                this.isMatchmaking = false;
+                clearTimeout(this.matchmakingTimeout);
 
-                // Set match info for the current user
-                await set(this.myQueueRef, {
+                await set(ref(database, `queue/${this.currentUser.uid}`), {
                     matchedWith: otherUserId,
-                    chatRoomId: matchedChatRoomId
+                    chatRoomId: newChatRoomId
                 });
 
-                // Create participants node in the new chat room
-                const chatRoomRef = ref(database, `chats/${matchedChatRoomId}`);
-                const participantsRef = ref(database, `chats/${matchedChatRoomId}/participants`);
-                const timestamp = serverTimestamp();
+                const participantsRef = ref(database, `chats/${newChatRoomId}/participants`);
                 await set(participantsRef, {
-                    [this.currentUser.uid]: { status: 'active', joined: timestamp },
-                    [otherUserId]: { status: 'active', joined: timestamp }
+                    [this.currentUser.uid]: { status: 'active', joined: serverTimestamp() },
+                    [otherUserId]: { status: 'active', joined: serverTimestamp() }
                 });
-            } else {
-                // Failed to claim, try again after a delay
-                if (this.isMatchmaking) {
-                    setTimeout(() => this.findAndClaimMatch(), 1000);
-                }
+
+                this.chatRoomId = newChatRoomId;
+                this.otherUserId = otherUserId;
+                this.connectToChat();
             }
         } catch (error) {
-            console.error("Transaction failed: ", error);
-            if (this.isMatchmaking) {
-                setTimeout(() => this.findAndClaimMatch(), 1000);
-            }
+            console.error("Claiming transaction failed: ", error);
         }
     }
 
@@ -284,24 +298,35 @@ export default class ChatScreen {
         this.chatRoomRef = ref(database, `chats/${this.chatRoomId}`);
         const messagesRef = ref(database, `chats/${this.chatRoomId}/messages`);
 
-        onValue(messagesRef, (snapshot) => {
-            // A simple but effective way to keep the UI in sync.
-            // For a large-scale app, listening to child_added, child_changed, etc., is more performant.
-            const typingIndicator = this.messagesContainer.querySelector('.typing-indicator-container');
-            this.messagesContainer.innerHTML = ''; // Clear all messages
-            if(typingIndicator) this.messagesContainer.appendChild(typingIndicator); // Re-add typing indicator
+        // Clear UI and map for new chat
+        const typingIndicator = this.messagesContainer.querySelector('.typing-indicator-container');
+        this.messagesContainer.innerHTML = '';
+        if(typingIndicator) this.messagesContainer.appendChild(typingIndicator);
+        this.messageMap = {};
 
-            this.messageMap = {}; // Reset and repopulate the map
-            if (snapshot.exists()) {
-                const messages = snapshot.val();
-                const sortedMessages = Object.values(messages).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        onChildAdded(messagesRef, (snapshot) => {
+            const message = snapshot.val();
+            if (message && message.messageId) {
+                this.messageMap[message.messageId] = message;
+                this.addMessageToUI(message);
+            }
+        });
 
-                sortedMessages.forEach(message => {
-                    if (message && message.messageId) {
-                        this.messageMap[message.messageId] = message;
-                        this.addMessageToUI(message);
+        onChildChanged(messagesRef, (snapshot) => {
+            const updatedMessage = snapshot.val();
+            if (updatedMessage && updatedMessage.messageId) {
+                this.messageMap[updatedMessage.messageId] = updatedMessage;
+                // Find the message wrapper in the DOM and update its reactions
+                const messageWrapper = this.messagesContainer.querySelector(`[data-message-id="${updatedMessage.messageId}"]`);
+                if (messageWrapper) {
+                    const oldReactionsContainer = messageWrapper.querySelector('.reactions-container');
+                    const newReactionsContainer = this.createReactionsContainer(updatedMessage.reactions);
+                    if (oldReactionsContainer) {
+                        messageWrapper.replaceChild(newReactionsContainer, oldReactionsContainer);
+                    } else {
+                        messageWrapper.appendChild(newReactionsContainer);
                     }
-                });
+                }
             }
         });
     }
@@ -310,14 +335,14 @@ export default class ChatScreen {
     addMessageToUI(message) {
         const wrapper = document.createElement('div');
         const messageEl = document.createElement('div');
-        
+
         const type = message.type === 'system' ? 'system' : (message.senderId === this.currentUser.uid ? 'sent' : 'received');
         
         wrapper.className = `message-wrapper ${type}`;
         wrapper.dataset.messageId = message.messageId;
         
         messageEl.className = `message ${type}`;
-        
+
         // Render reply quote if it exists
         if (message.replyToMessageId && this.messageMap[message.replyToMessageId]) {
             const originalMessage = this.messageMap[message.replyToMessageId];
@@ -332,7 +357,7 @@ export default class ChatScreen {
         const textNode = document.createElement('span');
         textNode.textContent = message.text;
         messageEl.appendChild(textNode);
-        
+
         if (type !== 'system') {
             wrapper.addEventListener('pointerdown', (e) => this.handleGestureStart(e, message, wrapper));
         }
@@ -354,7 +379,7 @@ export default class ChatScreen {
         
         this.swipeStartX = e.clientX;
         this.isSwiping = false;
-        
+
         const onMove = (moveEvent) => {
             this.swipeCurrentX = moveEvent.clientX;
             const dx = this.swipeCurrentX - this.swipeStartX;

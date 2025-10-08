@@ -32,4 +32,6 @@
         <item>system</item>
     </string-array>
     <string name="typing_indicator_text">Typing...</string>
+    <string name="anonymous_mode">Anonymous Mode</string>
+    <string name="anonymous_mode_subtitle">Your identity is hidden. Chat freely and securely.</string>
 </resources>

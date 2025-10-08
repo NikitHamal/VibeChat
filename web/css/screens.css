@@ -143,6 +143,34 @@
     margin-bottom: var(--space-3xl);
 }
 
+.anonymous-card {
+    background-color: var(--surface-container);
+    border-radius: var(--radius-xl);
+    padding: var(--space-2xl);
+    text-align: center;
+    margin-bottom: var(--space-2xl);
+    border: 1px solid var(--outline);
+}
+
+.anonymous-card .material-symbols-outlined {
+    font-size: 48px;
+    color: var(--primary);
+    margin-bottom: var(--space-lg);
+}
+
+.anonymous-card h3 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--on-surface);
+    margin-bottom: var(--space-sm);
+}
+
+.anonymous-card p {
+    font-size: 14px;
+    color: var(--on-surface-variant);
+    line-height: 1.5;
+}
+
 /* ===================================
    CHAT SCREEN
    =================================== */
