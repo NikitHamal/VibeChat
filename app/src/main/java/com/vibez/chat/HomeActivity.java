@@ -1,9 +1,11 @@
 package com.vibez.chat;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -17,7 +19,6 @@ import com.google.android.material.color.MaterialColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import android.content.SharedPreferences;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -136,7 +137,7 @@ public class HomeActivity extends AppCompatActivity {
                 if (snapshot.exists()) {
                     user = snapshot.getValue(User.class);
                 } else {
-                    user = new User(currentUser.getUid(), currentUser.getDisplayName(), "", 0, "",
+                    user = new User(currentUser.getUid(), currentUser.getDisplayName(), currentUser.getEmail(),
                             currentUser.getPhotoUrl() != null ? currentUser.getPhotoUrl().toString() : "");
                     mUsersRef.child(currentUser.getUid()).setValue(user);
                 }
@@ -171,7 +172,7 @@ public class HomeActivity extends AppCompatActivity {
             }
         } else {
             genderTextView.setText(getString(R.string.gender));
-            genderTextView.setTextColor(getResources().getColor(R.color.design_default_color_on_surface, getTheme()));
+            genderTextView.setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant, 0));
         }
 
         SharedPreferences.Editor editor = sharedPreferences.edit();
