@@ -41,6 +41,12 @@ jobs:
           };
           export default firebaseConfig;" > web/js/firebase-config.js
 
+      - name: Allow Firebase Config in Artifact
+        run: |
+          # The firebase-config.js is in .gitignore, so we must remove the ignore
+          # rule for the action to include it in the artifact.
+          sed -i '/firebase-config.js/d' .gitignore
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
