@@ -133,17 +133,26 @@ public class HomeActivity extends AppCompatActivity {
         mUsersRef.child(currentUser.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                User user;
-                if (snapshot.exists()) {
-                    user = snapshot.getValue(User.class);
+                // Tolerant parsing to avoid type issues
+                com.google.firebase.database.GenericTypeIndicator<java.util.Map<String, Object>> t = new com.google.firebase.database.GenericTypeIndicator<java.util.Map<String, Object>>() {};
+                java.util.Map<String, Object> data = snapshot.getValue(t);
+                User user = new User(currentUser.getUid(), currentUser.getDisplayName(), currentUser.getEmail(),
+                        currentUser.getPhotoUrl() != null ? currentUser.getPhotoUrl().toString() : "");
+                if (data != null) {
+                    if (data.get("name") != null) user.setName(String.valueOf(data.get("name")));
+                    if (data.get("gender") != null) user.setGender(String.valueOf(data.get("gender")));
+                    if (data.get("country") != null) user.setCountry(String.valueOf(data.get("country")));
+                    if (data.get("age") != null) {
+                        Object ageObj = data.get("age");
+                        if (ageObj instanceof Number) user.setAge(((Number) ageObj).intValue());
+                        else {
+                            try { user.setAge(Integer.parseInt(String.valueOf(ageObj))); } catch (Exception ignore) { user.setAge(0); }
+                        }
+                    }
                 } else {
-                    user = new User(currentUser.getUid(), currentUser.getDisplayName(), currentUser.getEmail(),
-                            currentUser.getPhotoUrl() != null ? currentUser.getPhotoUrl().toString() : "");
                     mUsersRef.child(currentUser.getUid()).setValue(user);
                 }
-                if (user != null) {
-                    updateUIAndCache(user);
-                }
+                updateUIAndCache(user);
             }
 
             @Override

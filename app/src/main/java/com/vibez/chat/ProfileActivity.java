@@ -101,28 +101,39 @@ public class ProfileActivity extends AppCompatActivity {
         mUserRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                User user = snapshot.getValue(User.class);
-                if (user != null) {
-                    // Set display values
-                    nameDisplay.setText(user.getName() != null ? user.getName() : "Not specified");
-                    genderDisplay.setText(user.getGender() != null ? user.getGender() : "Not specified");
-                    ageDisplay.setText(user.getAge() > 0 ? String.valueOf(user.getAge()) : "Not specified");
-                    countryDisplay.setText(user.getCountry() != null ? user.getCountry() : "Not specified");
-                    emailDisplay.setText(user.getEmail() != null ? user.getEmail() : "No email");
+                // Tolerant parsing to handle type mismatches
+                com.google.firebase.database.GenericTypeIndicator<java.util.Map<String, Object>> t = new com.google.firebase.database.GenericTypeIndicator<java.util.Map<String, Object>>() {};
+                java.util.Map<String, Object> data = snapshot.getValue(t);
+                String name = data != null && data.get("name") != null ? String.valueOf(data.get("name")) : null;
+                String gender = data != null && data.get("gender") != null ? String.valueOf(data.get("gender")) : null;
+                String country = data != null && data.get("country") != null ? String.valueOf(data.get("country")) : null;
+                String email = data != null && data.get("email") != null ? String.valueOf(data.get("email")) : null;
+                int age = 0;
+                if (data != null && data.get("age") != null) {
+                    Object ageObj = data.get("age");
+                    if (ageObj instanceof Number) age = ((Number) ageObj).intValue();
+                    else { try { age = Integer.parseInt(String.valueOf(ageObj)); } catch (Exception ignore) { age = 0; } }
+                }
 
-                    // Set edit values
-                    nameEdit.setText(user.getName());
-                    ageEdit.setText(user.getAge() > 0 ? String.valueOf(user.getAge()) : "");
-                    countryEdit.setText(user.getCountry());
-                    genderEdit.setText(user.getGender() != null ? user.getGender() : "Not specified");
+                // Set display values
+                nameDisplay.setText(name != null && !name.isEmpty() ? name : "Not specified");
+                genderDisplay.setText(gender != null && !gender.isEmpty() ? gender : "Not specified");
+                ageDisplay.setText(age > 0 ? String.valueOf(age) : "Not specified");
+                countryDisplay.setText(country != null && !country.isEmpty() ? country : "Not specified");
+                emailDisplay.setText(email != null && !email.isEmpty() ? email : "No email");
 
-                    // Find selected gender index
-                    if (user.getGender() != null) {
-                        for (int i = 0; i < genders.length; i++) {
-                            if (genders[i].equals(user.getGender())) {
-                                selectedGenderIndex = i;
-                                break;
-                            }
+                // Set edit values
+                nameEdit.setText(name != null ? name : "");
+                ageEdit.setText(age > 0 ? String.valueOf(age) : "");
+                countryEdit.setText(country != null ? country : "");
+                genderEdit.setText(gender != null && !gender.isEmpty() ? gender : "Not specified");
+
+                // Find selected gender index
+                if (gender != null) {
+                    for (int i = 0; i < genders.length; i++) {
+                        if (genders[i].equals(gender)) {
+                            selectedGenderIndex = i;
+                            break;
                         }
                     }
                 }

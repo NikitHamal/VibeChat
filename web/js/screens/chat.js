@@ -228,6 +228,7 @@ export default class ChatScreen {
         this.listenForMessages();
         this.setupTypingIndicator();
         this.listenForOtherUserLeave();
+        this.ensureConnectedSystemMessage();
     }
 
     async attemptToClaim(otherUserId) {
@@ -296,9 +297,9 @@ export default class ChatScreen {
         // Flag
         this.strangerFlag.textContent = this.getFlagFromCountry(stranger && stranger.country);
 
-        // Add system message and show suggestions
-        this.addMessageToUI({ type: 'system', text: `You're now chatting with ${this.strangerName.textContent}. Be nice!` });
+        // Show suggestions after connect; system message will be stored once
         this.showSuggestions();
+        this.ensureConnectedSystemMessage();
     }
 
     getFlagFromCountry(country) {
@@ -665,6 +666,28 @@ export default class ChatScreen {
     hideSuggestions() {
         this.suggestionsContainer.classList.remove('active');
         this.suggestionsContainer.innerHTML = '';
+    }
+
+    ensureConnectedSystemMessage() {
+        if (!this.chatRoomId) return;
+        const flagRef = ref(database, `chats/${this.chatRoomId}/meta/connectedMessageSent`);
+        runTransaction(flagRef, (current) => {
+            if (current === true) return; // abort
+            return true;
+        }).then((result) => {
+            if (result && result.committed) {
+                const messagesRef = ref(database, `chats/${this.chatRoomId}/messages`);
+                const newMessageRef = push(messagesRef);
+                const messageData = {
+                    messageId: newMessageRef.key,
+                    text: `You're now chatting with ${this.strangerName.textContent}. Be nice!`,
+                    senderId: 'system',
+                    timestamp: serverTimestamp(),
+                    type: 'system'
+                };
+                set(newMessageRef, messageData);
+            }
+        }).catch(() => {});
     }
 
     listenForOtherUserLeave() {

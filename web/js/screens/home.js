@@ -135,7 +135,7 @@ export default class HomeScreen {
             // Ensure an anonymous profile exists for the other client to read
             const userRef = ref(database, 'users/' + this.currentUser.uid);
             try {
-                await update(userRef, { name: 'Anonymous', gender: '', age: '', country: '' });
+                await update(userRef, { name: 'Anonymous', gender: '', age: 0, country: '' });
             } catch (e) {
                 console.warn('Failed to write anonymous profile, proceeding anyway', e);
             }

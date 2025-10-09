@@ -29,6 +29,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.MutableData;
 import com.google.firebase.database.Transaction;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.database.GenericTypeIndicator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -283,24 +284,24 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
         mUsersRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                User stranger = snapshot.getValue(User.class);
-                if (stranger == null) {
-                    // Fallback defaults when user profile is missing
-                    otherUserName = "Anonymous";
-                    strangerNameTextView.setText(otherUserName);
-                    strangerDetailsTextView.setVisibility(View.GONE);
-                    strangerFlagTextView.setText(getFlagFromCountry(null));
-                    strangerFlagTextView.setVisibility(View.VISIBLE);
+                // Tolerant parsing to handle type mismatches (e.g., age as String)
+                GenericTypeIndicator<java.util.Map<String, Object>> t = new GenericTypeIndicator<java.util.Map<String, Object>>() {};
+                java.util.Map<String, Object> data = snapshot.getValue(t);
 
-                    chatAdapter = new ChatAdapter(messageList, messageMap, otherUserName, ChatActivity.this);
-                    chatRecyclerView.setAdapter(chatAdapter);
-                    sendSystemMessage("You're now chatting with " + otherUserName + ". Be nice!");
-                    populateSuggestionChips();
-                    listenForOtherUserLeave();
-                    return;
+                String name = data != null && data.get("name") != null ? String.valueOf(data.get("name")) : null;
+                String gender = data != null && data.get("gender") != null ? String.valueOf(data.get("gender")) : null;
+                String country = data != null && data.get("country") != null ? String.valueOf(data.get("country")) : null;
+                int age = 0;
+                if (data != null && data.get("age") != null) {
+                    Object ageObj = data.get("age");
+                    if (ageObj instanceof Number) {
+                        age = ((Number) ageObj).intValue();
+                    } else {
+                        try { age = Integer.parseInt(String.valueOf(ageObj)); } catch (Exception ignore) { age = 0; }
+                    }
                 }
 
-                otherUserName = stranger.getName() != null && !stranger.getName().trim().isEmpty() ? stranger.getName() : "Anonymous";
+                otherUserName = (name != null && !name.trim().isEmpty()) ? name : "Anonymous";
                 strangerNameTextView.setText(otherUserName);
 
                 // Re-create the adapter with the stranger's name for reply quotes
@@ -308,32 +309,56 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
                 chatRecyclerView.setAdapter(chatAdapter);
 
                 boolean isAnonymous = "Anonymous".equalsIgnoreCase(otherUserName.trim());
-                boolean hasGender = stranger.getGender() != null && !stranger.getGender().trim().isEmpty() && !"Not specified".equalsIgnoreCase(stranger.getGender().trim());
-                boolean hasAge = stranger.getAge() > 0;
+                boolean hasGender = gender != null && !gender.trim().isEmpty() && !"Not specified".equalsIgnoreCase(gender.trim());
+                boolean hasAge = age > 0;
 
                 if (isAnonymous || (!hasGender && !hasAge)) {
                     strangerDetailsTextView.setVisibility(View.GONE);
                 } else {
                     StringBuilder info = new StringBuilder();
-                    if (hasGender) info.append(stranger.getGender());
+                    if (hasGender) info.append(gender);
                     if (hasAge) {
                         if (info.length() > 0) info.append(", ");
-                        info.append(stranger.getAge());
+                        info.append(age);
                     }
                     strangerDetailsTextView.setText(info.toString());
                     strangerDetailsTextView.setVisibility(View.VISIBLE);
                 }
 
                 // Country flag: default to earth if missing
-                String flag = getFlagFromCountry(stranger.getCountry());
+                String flag = getFlagFromCountry(country);
                 strangerFlagTextView.setText(flag);
                 strangerFlagTextView.setVisibility(View.VISIBLE);
-                sendSystemMessage("You're now chatting with " + otherUserName + ". Be nice!");
+                ensureConnectedSystemMessage();
                 populateSuggestionChips();
                 listenForOtherUserLeave();
             }
             @Override
             public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+
+    private void ensureConnectedSystemMessage() {
+        if (mChatRoomRef == null) return;
+        DatabaseReference flagRef = mChatRoomRef.child("meta").child("connectedMessageSent");
+        flagRef.runTransaction(new Transaction.Handler() {
+            @NonNull
+            @Override
+            public Transaction.Result doTransaction(@NonNull MutableData currentData) {
+                Object val = currentData.getValue();
+                if (val instanceof Boolean && (Boolean) val) {
+                    return Transaction.abort();
+                }
+                currentData.setValue(true);
+                return Transaction.success(currentData);
+            }
+
+            @Override
+            public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
+                if (committed && error == null) {
+                    sendSystemMessage("You're now chatting with " + otherUserName + ". Be nice!");
+                }
+            }
         });
     }
 
