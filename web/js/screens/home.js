@@ -132,13 +132,6 @@ export default class HomeScreen {
 
     async startChat() {
         if (this.currentUser.isAnonymous) {
-            // Ensure an anonymous profile exists for the other client to read
-            const userRef = ref(database, 'users/' + this.currentUser.uid);
-            try {
-                await update(userRef, { name: 'Anonymous', gender: '', age: '', country: '' });
-            } catch (e) {
-                console.warn('Failed to write anonymous profile, proceeding anyway', e);
-            }
             this.app.navigate('chat');
             return;
         }

@@ -198,11 +198,9 @@ public class HomeActivity extends AppCompatActivity {
     private void startChat() {
         if (currentUser.isAnonymous()) {
             DatabaseReference currentUserRef = mUsersRef.child(currentUser.getUid());
-            // For anonymous users: name Anonymous, hide age/gender by setting empty/zero, default country blank
             currentUserRef.child("name").setValue("Anonymous");
-            currentUserRef.child("gender").setValue("");
+            currentUserRef.child("gender").setValue("Not specified");
             currentUserRef.child("age").setValue(0);
-            currentUserRef.child("country").setValue("");
             Intent intent = new Intent(HomeActivity.this, ChatActivity.class);
             startActivity(intent);
             return;

@@ -56,11 +56,6 @@ export default class ChatScreen {
         this.chatRoomId = null;
         this.otherUserId = null;
         this.messageMap = {};
-        this.unsubMessagesAdded = null;
-        this.unsubMessagesChanged = null;
-        this.unsubOtherTyping = null;
-        this.unsubOtherParticipant = null;
-        this.myTypingRef = null;
         
         this.setupEventListeners();
         this.setupReactionPickerListeners();
@@ -102,14 +97,12 @@ export default class ChatScreen {
         this.myQueueRef = null;
 
         // Cleanup chat listeners
-        if (this.unsubMessagesAdded) { this.unsubMessagesAdded(); this.unsubMessagesAdded = null; }
-        if (this.unsubMessagesChanged) { this.unsubMessagesChanged(); this.unsubMessagesChanged = null; }
-        if (this.unsubOtherTyping) { this.unsubOtherTyping(); this.unsubOtherTyping = null; }
-        if (this.unsubOtherParticipant) { this.unsubOtherParticipant(); this.unsubOtherParticipant = null; }
-        if (this.myTypingRef) {
-            // Best-effort: clear my typing status
-            try { set(this.myTypingRef, false); } catch (e) { /* noop */ }
-            this.myTypingRef = null;
+        if (this.chatRoomRef) {
+            this.chatRoomRef.off(); // Detaches all listeners on this reference
+        }
+        if (this.typingRef) {
+            this.typingRef.off();
+            this.typingRef.child(this.currentUser.uid).remove();
         }
         clearTimeout(this.typingTimeout);
 
@@ -227,7 +220,6 @@ export default class ChatScreen {
         this.fetchAndDisplayStrangerInfo(this.otherUserId);
         this.listenForMessages();
         this.setupTypingIndicator();
-        this.listenForOtherUserLeave();
     }
 
     async attemptToClaim(otherUserId) {
@@ -271,56 +263,33 @@ export default class ChatScreen {
     async fetchAndDisplayStrangerInfo(userId) {
         const userRef = ref(database, 'users/' + userId);
         const snapshot = await get(userRef);
-        const defaultUser = { name: 'Anonymous', gender: '', age: '', country: '' };
-        const stranger = snapshot.exists() ? snapshot.val() : defaultUser;
+        if (snapshot.exists()) {
+            const stranger = snapshot.val();
+            this.strangerName.textContent = stranger.name;
+            this.strangerInfo.textContent = `${stranger.gender}, ${stranger.age}`;
+            this.strangerFlag.textContent = this.getFlagFromCountry(stranger.country);
 
-        const isAnonymous = !stranger || !stranger.name || String(stranger.name).trim().toLowerCase() === 'anonymous';
-        const hasGender = stranger && stranger.gender && String(stranger.gender).trim() !== '' && String(stranger.gender).trim().toLowerCase() !== 'not specified';
-        const ageVal = stranger && (typeof stranger.age === 'number' ? stranger.age : parseInt(stranger.age, 10));
-        const hasAge = Number.isFinite(ageVal) && ageVal > 0;
-
-        // Name
-        this.strangerName.textContent = isAnonymous ? 'Anonymous' : (stranger.name || 'Stranger');
-
-        // Info visibility rules
-        if (isAnonymous || (!hasGender && !hasAge)) {
-            this.strangerInfo.style.display = 'none';
-            this.strangerInfo.textContent = '';
-        } else {
-            this.strangerInfo.style.display = '';
-            const genderText = hasGender ? stranger.gender : '';
-            const ageText = hasAge ? String(ageVal) : '';
-            this.strangerInfo.textContent = [genderText, ageText].filter(Boolean).join(', ');
+            // Add system message and show suggestions
+            this.addMessageToUI({
+                type: 'system',
+                text: `You're now chatting with ${stranger.name}. Be nice!`
+            });
+            this.showSuggestions();
         }
-
-        // Flag
-        this.strangerFlag.textContent = this.getFlagFromCountry(stranger && stranger.country);
-
-        // Add system message and show suggestions
-        this.addMessageToUI({ type: 'system', text: `You're now chatting with ${this.strangerName.textContent}. Be nice!` });
-        this.showSuggestions();
     }
 
-    getFlagFromCountry(country) {
-        if (!country) return '🌍';
-        const c = String(country).trim();
-        const map = {
-            'US': '🇺🇸', 'USA': '🇺🇸', 'United States': '🇺🇸',
-            'CA': '🇨🇦', 'Canada': '🇨🇦',
-            'GB': '🇬🇧', 'UK': '🇬🇧', 'United Kingdom': '🇬🇧',
-            'AU': '🇦🇺', 'Australia': '🇦🇺',
-            'IN': '🇮🇳', 'India': '🇮🇳'
-        };
-        return map[c] || '🌍';
+    getFlagFromCountry(countryCode) {
+        const flags = { 'US': '🇺🇸', 'CA': '🇨🇦', 'GB': '🇬🇧', 'AU': '🇦🇺', 'IN': '🇮🇳' };
+        return flags[countryCode] || '🏳️';
     }
 
     setupTypingIndicator() {
         this.typingRef = ref(database, `chats/${this.chatRoomId}/typing`);
-        this.myTypingRef = ref(database, `chats/${this.chatRoomId}/typing/${this.currentUser.uid}`);
+        const myTypingRef = ref(database, `chats/${this.chatRoomId}/typing/${this.currentUser.uid}`);
         const otherUserTypingRef = ref(database, `chats/${this.chatRoomId}/typing/${this.otherUserId}`);
 
         // Listen for other user's typing status
-        this.unsubOtherTyping = onValue(otherUserTypingRef, (snapshot) => {
+        onValue(otherUserTypingRef, (snapshot) => {
             if (snapshot.exists() && snapshot.val() === true) {
                 this.typingIndicator.style.display = 'block';
                 this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
@@ -331,17 +300,17 @@ export default class ChatScreen {
 
         // Set my typing status
         this.messageInput.addEventListener('input', () => {
-            if (this.myTypingRef) {
-                set(this.myTypingRef, true);
+            if (this.typingRef) {
+                set(myTypingRef, true);
                 clearTimeout(this.typingTimeout);
                 this.typingTimeout = setTimeout(() => {
-                    set(this.myTypingRef, false);
+                    set(myTypingRef, false);
                 }, 2000); // 2 seconds
             }
         });
 
         // Ensure my typing status is removed on disconnect
-        onDisconnect(this.myTypingRef).remove();
+        onDisconnect(myTypingRef).remove();
     }
 
     listenForMessages() {
@@ -354,7 +323,7 @@ export default class ChatScreen {
         if(typingIndicator) this.messagesContainer.appendChild(typingIndicator);
         this.messageMap = {};
 
-        this.unsubMessagesAdded = onChildAdded(messagesRef, (snapshot) => {
+        onChildAdded(messagesRef, (snapshot) => {
             const message = snapshot.val();
             if (message && message.messageId) {
                 this.messageMap[message.messageId] = message;
@@ -362,7 +331,7 @@ export default class ChatScreen {
             }
         });
 
-        this.unsubMessagesChanged = onChildChanged(messagesRef, (snapshot) => {
+        onChildChanged(messagesRef, (snapshot) => {
             const updatedMessage = snapshot.val();
             if (updatedMessage && updatedMessage.messageId) {
                 this.messageMap[updatedMessage.messageId] = updatedMessage;
@@ -389,7 +358,7 @@ export default class ChatScreen {
         const type = message.type === 'system' ? 'system' : (message.senderId === this.currentUser.uid ? 'sent' : 'received');
         
         wrapper.className = `message-wrapper ${type}`;
-        wrapper.dataset.messageId = message.messageId || '';
+        wrapper.dataset.messageId = message.messageId;
         
         messageEl.className = `message ${type}`;
 
@@ -665,21 +634,5 @@ export default class ChatScreen {
     hideSuggestions() {
         this.suggestionsContainer.classList.remove('active');
         this.suggestionsContainer.innerHTML = '';
-    }
-
-    listenForOtherUserLeave() {
-        if (!this.chatRoomId || !this.otherUserId) return;
-        const otherParticipantRef = ref(database, `chats/${this.chatRoomId}/participants/${this.otherUserId}`);
-        this.unsubOtherParticipant = onValue(otherParticipantRef, (snapshot) => {
-            const participant = snapshot.val();
-            if (participant && participant.status === 'left') {
-                const name = this.strangerName.textContent || 'Stranger';
-                this.addMessageToUI({ type: 'system', text: `${name} has left the chat.` });
-                if (this.unsubOtherParticipant) {
-                    this.unsubOtherParticipant();
-                    this.unsubOtherParticipant = null;
-                }
-            }
-        });
     }
 }
