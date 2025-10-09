@@ -52,12 +52,7 @@ export default class ChatScreen {
         this.isMatchmaking = false;
         this.currentUser = null;
         this.myQueueRef = null;
-        this.chatRoomRef = null;
-        this.typingRef = null;
         this.unsubscribeQueueListener = null;
-        this.unsubscribeParticipantsListener = null;
-        this.unsubscribeMessagesListener = null;
-        this.unsubscribeTypingListener = null;
         this.chatRoomId = null;
         this.otherUserId = null;
         this.messageMap = {};
@@ -97,12 +92,13 @@ export default class ChatScreen {
         }
         if (this.unsubscribeQueueListener) {
             this.unsubscribeQueueListener();
+            this.unsubscribeQueueListener = null;
         }
-        if (this.unsubscribeParticipantsListener) {
-            this.unsubscribeParticipantsListener();
-        }
-        if (this.unsubscribeMessagesListener) {
-            this.unsubscribeMessagesListener();
+        this.myQueueRef = null;
+
+        // Cleanup chat listeners
+        if (this.chatRoomRef) {
+            this.chatRoomRef.off(); // Detaches all listeners on this reference
         }
         if (this.unsubscribeTypingListener) {
             this.unsubscribeTypingListener();
@@ -616,23 +612,16 @@ export default class ChatScreen {
     }
 
     async leaveChat(isFindingNewMatch = false) {
-        // Keep a reference to the needed state before it might be cleared
-        const chatRoomId = this.chatRoomId;
-        const currentUid = this.currentUser ? this.currentUser.uid : null;
-
-        if (chatRoomId && currentUid) {
-            // Update participant status to "left"
-            const participantRef = ref(database, `chats/${chatRoomId}/participants/${currentUid}`);
+        if (this.chatRoomRef && this.currentUser) {
+            const participantRef = ref(database, `chats/${this.chatRoomId}/participants/${this.currentUser.uid}`);
             await set(participantRef, { status: 'left', left: serverTimestamp() });
 
-            // Check if the other participant has also left to delete the chat room
             await this.checkAndDeleteChatRoom();
         }
 
-        // Now handle navigation/reset
         if (isFindingNewMatch) {
-            this.onExit(); // Clean up everything from the old chat
-            this.onEnter(); // Restart the whole matchmaking process
+            this.onExit();
+            this.onEnter();
         } else {
             this.app.navigate('home'); // This will trigger onExit() automatically via app navigation
         }
@@ -651,7 +640,6 @@ export default class ChatScreen {
             const participants = snapshot.val();
             const participantKeys = Object.keys(participants);
 
-            // Ensure there are at least two participants before checking
             if (participantKeys.length < 2) {
                 return;
             }
@@ -661,31 +649,6 @@ export default class ChatScreen {
                 await remove(this.chatRoomRef);
             }
         }
-    }
-
-    listenForParticipantChanges() {
-        if (this.unsubscribeParticipantsListener) {
-            this.unsubscribeParticipantsListener();
-        }
-        const participantsRef = ref(database, `chats/${this.chatRoomId}/participants`);
-        this.unsubscribeParticipantsListener = onValue(participantsRef, (snapshot) => {
-            if (!snapshot.exists()) return;
-
-            const participants = snapshot.val();
-            const otherUser = participants[this.otherUserId];
-
-            if (otherUser && otherUser.status === 'left') {
-                this.addMessageToUI({
-                    type: 'system',
-                    text: `${this.strangerName.textContent} has left the chat.`
-                });
-                // Stop listening once the user has left to prevent multiple messages
-                if (this.unsubscribeParticipantsListener) {
-                    this.unsubscribeParticipantsListener();
-                    this.unsubscribeParticipantsListener = null;
-                }
-            }
-        });
     }
 
     handleBack() {
