@@ -100,18 +100,30 @@ export default class ChatScreen {
         if (this.chatRoomRef) {
             this.chatRoomRef.off(); // Detaches all listeners on this reference
         }
-        if (this.typingRef) {
-            this.typingRef.off();
-            this.typingRef.child(this.currentUser.uid).remove();
+        if (this.unsubscribeTypingListener) {
+            this.unsubscribeTypingListener();
         }
+
+        // Ensure my typing status is cleared on exit
+        if(this.typingRef && this.currentUser) {
+            const myTypingRef = ref(database, `chats/${this.chatRoomId}/typing/${this.currentUser.uid}`);
+            remove(myTypingRef);
+        }
+
         clearTimeout(this.typingTimeout);
 
         // Reset state
-        this.chatRoomId = null;
-        this.otherUserId = null;
+        this.isMatchmaking = false;
+        this.currentUser = null;
+        this.myQueueRef = null;
         this.chatRoomRef = null;
         this.typingRef = null;
-        this.isMatchmaking = false;
+        this.unsubscribeQueueListener = null;
+        this.unsubscribeParticipantsListener = null;
+        this.unsubscribeMessagesListener = null;
+        this.unsubscribeTypingListener = null;
+        this.chatRoomId = null;
+        this.otherUserId = null;
         this.messageMap = {};
         this.hideReplyPreview();
         this.hasSentFirstMessage = false;
@@ -214,12 +226,21 @@ export default class ChatScreen {
             remove(this.myQueueRef);
         }
 
+        // Clear UI and reset state for the new chat
+        this.messagesContainer.innerHTML = '';
+        this.messageMap = {};
+        this.hasSentFirstMessage = false;
+        this.hideReplyPreview();
+        this.hideSuggestions();
+
+
         this.loadingOverlay.classList.remove('active');
         this.element.querySelector('.chat-toolbar').style.visibility = 'visible';
 
         this.fetchAndDisplayStrangerInfo(this.otherUserId);
         this.listenForMessages();
         this.setupTypingIndicator();
+        this.listenForParticipantChanges();
     }
 
     async attemptToClaim(otherUserId) {
@@ -262,11 +283,32 @@ export default class ChatScreen {
 
     async fetchAndDisplayStrangerInfo(userId) {
         const userRef = ref(database, 'users/' + userId);
-        const snapshot = await get(userRef);
-        if (snapshot.exists()) {
+
+        // Retry mechanism to handle race condition where user data might not be written yet
+        const maxRetries = 5;
+        let attempt = 0;
+        let snapshot = null;
+
+        while (attempt < maxRetries) {
+            snapshot = await get(userRef);
+            if (snapshot.exists()) {
+                break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 500)); // wait 500ms
+            attempt++;
+        }
+
+        if (snapshot && snapshot.exists()) {
             const stranger = snapshot.val();
             this.strangerName.textContent = stranger.name;
-            this.strangerInfo.textContent = `${stranger.gender}, ${stranger.age}`;
+
+            if (stranger.name === 'Anonymous') {
+                this.strangerInfo.style.display = 'none';
+            } else {
+                this.strangerInfo.textContent = `${stranger.gender}, ${stranger.age}`;
+                this.strangerInfo.style.display = 'block';
+            }
+
             this.strangerFlag.textContent = this.getFlagFromCountry(stranger.country);
 
             // Add system message and show suggestions
@@ -275,12 +317,16 @@ export default class ChatScreen {
                 text: `You're now chatting with ${stranger.name}. Be nice!`
             });
             this.showSuggestions();
+        } else {
+            this.app.showToast("Could not load stranger's details. Please try again.");
+            this.strangerName.textContent = 'Stranger';
+            this.strangerInfo.textContent = 'Details unavailable';
         }
     }
 
     getFlagFromCountry(countryCode) {
         const flags = { 'US': '🇺🇸', 'CA': '🇨🇦', 'GB': '🇬🇧', 'AU': '🇦🇺', 'IN': '🇮🇳' };
-        return flags[countryCode] || '🏳️';
+        return flags[countryCode] || '🌍';
     }
 
     setupTypingIndicator() {
@@ -289,7 +335,7 @@ export default class ChatScreen {
         const otherUserTypingRef = ref(database, `chats/${this.chatRoomId}/typing/${this.otherUserId}`);
 
         // Listen for other user's typing status
-        onValue(otherUserTypingRef, (snapshot) => {
+        this.unsubscribeTypingListener = onValue(otherUserTypingRef, (snapshot) => {
             if (snapshot.exists() && snapshot.val() === true) {
                 this.typingIndicator.style.display = 'block';
                 this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
@@ -317,25 +363,19 @@ export default class ChatScreen {
         this.chatRoomRef = ref(database, `chats/${this.chatRoomId}`);
         const messagesRef = ref(database, `chats/${this.chatRoomId}/messages`);
 
-        // Clear UI and map for new chat
-        const typingIndicator = this.messagesContainer.querySelector('.typing-indicator-container');
-        this.messagesContainer.innerHTML = '';
-        if(typingIndicator) this.messagesContainer.appendChild(typingIndicator);
-        this.messageMap = {};
-
-        onChildAdded(messagesRef, (snapshot) => {
+        // Combine listeners and store the unsubscribe function
+        const onNewMessage = (snapshot) => {
             const message = snapshot.val();
             if (message && message.messageId) {
                 this.messageMap[message.messageId] = message;
                 this.addMessageToUI(message);
             }
-        });
+        };
 
-        onChildChanged(messagesRef, (snapshot) => {
+        const onMessageUpdate = (snapshot) => {
             const updatedMessage = snapshot.val();
             if (updatedMessage && updatedMessage.messageId) {
                 this.messageMap[updatedMessage.messageId] = updatedMessage;
-                // Find the message wrapper in the DOM and update its reactions
                 const messageWrapper = this.messagesContainer.querySelector(`[data-message-id="${updatedMessage.messageId}"]`);
                 if (messageWrapper) {
                     const oldReactionsContainer = messageWrapper.querySelector('.reactions-container');
@@ -347,7 +387,16 @@ export default class ChatScreen {
                     }
                 }
             }
-        });
+        };
+
+        const unsubscribeAdded = onChildAdded(messagesRef, onNewMessage);
+        const unsubscribeChanged = onChildChanged(messagesRef, onMessageUpdate);
+
+        // Store a single function to unsubscribe from both
+        this.unsubscribeMessagesListener = () => {
+            unsubscribeAdded();
+            unsubscribeChanged();
+        };
     }
 
     // --- UI RENDERING ---
@@ -385,7 +434,8 @@ export default class ChatScreen {
 
         wrapper.appendChild(messageEl);
         wrapper.appendChild(reactionsContainer);
-        this.messagesContainer.insertBefore(wrapper, this.typingIndicator);
+
+        this.messagesContainer.appendChild(wrapper);
         this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
     }
 
@@ -573,7 +623,7 @@ export default class ChatScreen {
             this.onExit();
             this.onEnter();
         } else {
-            this.app.navigate('home');
+            this.app.navigate('home'); // This will trigger onExit() automatically via app navigation
         }
     }
 
