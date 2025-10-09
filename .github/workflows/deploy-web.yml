@@ -1,13 +1,9 @@
 name: Deploy Web to GitHub Pages
 
 on:
-  # Run on pushes to any branch, but only when web files change
+  # Runs on pushes targeting the default branch
   push:
-    branches:
-      - '**'
-    paths:
-      - 'web/**'
-      - 'index.html'
+    branches: ["main"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
