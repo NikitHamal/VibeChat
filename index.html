@@ -109,7 +109,7 @@
                 </div>
 
                 <div id="anonymous-mode-card" class="anonymous-card" style="display: none;">
-                    <img src="web/assets/images/incognito.svg" alt="Anonymous Mode" class="anonymous-icon"/>
+                    <span class="material-symbols-outlined anonymous-icon">domino_mask</span>
                     <h3>Anonymous Mode</h3>
                     <p>Your identity is hidden. Chat freely and securely.</p>
                 </div>
@@ -138,10 +138,12 @@
             </div>
 
             <div id="messages-container" class="messages-container">
-                <div class="typing-indicator-container" style="display: none;">
-                    <div class="typing-indicator">
-                        <span></span><span></span><span></span>
-                    </div>
+                <!-- Messages will be dynamically added here -->
+            </div>
+
+            <div class="typing-indicator-container" style="display: none;">
+                <div class="typing-indicator">
+                    <span></span><span></span><span></span>
                 </div>
             </div>
 
@@ -205,7 +207,6 @@
                                 <h5>Profile</h5>
                                 <p>View and edit your profile</p>
                             </div>
-                            <span class="material-symbols-outlined">chevron_right</span>
                         </div>
                     </div>
                 </div>
@@ -221,7 +222,6 @@
                             <h5>Theme</h5>
                             <p id="theme-value">System Default</p>
                         </div>
-                        <span class="material-symbols-outlined">chevron_right</span>
                     </div>
                 </div>
 

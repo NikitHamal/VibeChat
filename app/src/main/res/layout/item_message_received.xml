@@ -4,84 +4,108 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingStart="16dp"
-    android:paddingEnd="56dp"
-    android:paddingTop="4dp"
-    android:paddingBottom="4dp">
+    android:paddingStart="8dp"
+    android:paddingEnd="64dp"
+    android:paddingTop="2dp"
+    android:paddingBottom="2dp"
+    android:clipToPadding="false">
 
-    <LinearLayout
-        android:id="@+id/reply_quote_layout"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="@drawable/bg_reply_quote_received"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp"
-        android:layout_marginBottom="-2dp"
-        android:visibility="gone"
-        app:layout_constraintBottom_toTopOf="@id/message_text"
-        app:layout_constraintStart_toStartOf="@id/message_text"
-        tools:visibility="visible">
-
-        <TextView
-            android:id="@+id/reply_quote_name"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="?attr/colorPrimary"
-            android:textStyle="bold"
-            android:textSize="12sp"
-            tools:text="You" />
-
-        <TextView
-            android:id="@+id/reply_quote_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="?attr/colorOnSurface"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:textSize="14sp"
-            tools:text="This is the original message that was replied to." />
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/message_text"
+    <!-- This ConstraintLayout is the main bubble container -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/message_content_layout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_message_received_bubble"
-        android:paddingStart="16dp"
-        android:paddingTop="12dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="12dp"
-        android:textColor="?attr/colorOnSurface"
-        android:textSize="16sp"
+        app:layout_constrainedWidth="true"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:text="This is a received message example." />
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintTop_toTopOf="parent">
 
-    <androidx.constraintlayout.helper.widget.Flow
-        android:id="@+id/reactions_flow"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        app:constraint_referenced_ids="reaction_container"
-        app:flow_horizontalAlign="start"
-        app:flow_wrapMode="chain"
-        app:layout_constraintStart_toStartOf="@id/message_text"
-        app:layout_constraintTop_toBottomOf="@id/message_text" />
+        <!-- Reply Quote Layout (inside the bubble) -->
+        <LinearLayout
+            android:id="@+id/reply_quote_layout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="2dp"
+            android:layout_marginTop="2dp"
+            android:layout_marginEnd="2dp"
+            android:background="@drawable/bg_reply_quote_received"
+            android:orientation="horizontal"
+            android:padding="8dp"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:visibility="visible">
 
+            <!-- The little color bar for the reply -->
+            <View
+                android:layout_width="4dp"
+                android:layout_height="match_parent"
+                android:background="?attr/colorPrimary" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/reply_quote_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    tools:text="You" />
+
+                <TextView
+                    android:id="@+id/reply_quote_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="2"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="14sp"
+                    tools:text="This is the original message that was replied to, and it might be a little bit long." />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/message_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:paddingStart="16dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="12dp"
+            android:textColor="?attr/colorOnSurface"
+            android:textSize="16sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/reply_quote_layout"
+            tools:text="This is a received message example." />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Reactions Layout (overlapping the bubble) -->
     <LinearLayout
         android:id="@+id/reaction_container"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="-16dp"
         android:background="@drawable/bg_reaction_container"
-        android:paddingStart="4dp"
-        android:paddingEnd="4dp"
-        android:paddingTop="2dp"
-        android:paddingBottom="2dp"
+        android:elevation="2dp"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingTop="4dp"
+        android:paddingEnd="6dp"
+        android:paddingBottom="4dp"
         android:visibility="gone"
+        app:layout_constraintStart_toStartOf="@id/message_content_layout"
+        app:layout_constraintTop_toBottomOf="@id/message_content_layout"
         tools:visibility="visible">
         <!-- Reaction emojis will be added here dynamically -->
     </LinearLayout>

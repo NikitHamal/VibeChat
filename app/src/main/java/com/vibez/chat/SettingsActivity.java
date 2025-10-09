@@ -14,6 +14,7 @@ import androidx.preference.PreferenceManager;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.firebase.auth.FirebaseAuth;
 
 public class SettingsActivity extends AppCompatActivity {
 
@@ -26,6 +27,7 @@ public class SettingsActivity extends AppCompatActivity {
     private TextView userModeText;
     private LinearLayout themeSetting;
     private LinearLayout profileSetting;
+    private LinearLayout signOutSetting;
     private TextView accountSectionHeader;
     private MaterialCardView accountSectionCard;
     private MaterialCardView profileHeaderCard;
@@ -49,6 +51,7 @@ public class SettingsActivity extends AppCompatActivity {
         themeValue = findViewById(R.id.theme_value);
         themeSetting = findViewById(R.id.theme_setting);
         profileSetting = findViewById(R.id.profile_setting);
+        signOutSetting = findViewById(R.id.sign_out_setting);
         userModeText = findViewById(R.id.user_mode_text);
         accountSectionHeader = findViewById(R.id.account_section_header);
         accountSectionCard = findViewById(R.id.account_section_card);
@@ -65,6 +68,7 @@ public class SettingsActivity extends AppCompatActivity {
             Intent intent = new Intent(SettingsActivity.this, ProfileActivity.class);
             startActivity(intent);
         });
+        signOutSetting.setOnClickListener(v -> showSignOutDialog());
     }
 
     private void showThemeDialog() {
@@ -113,6 +117,23 @@ public class SettingsActivity extends AppCompatActivity {
                 AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
                 break;
         }
+    }
+
+    private void showSignOutDialog() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Sign Out")
+                .setMessage("Are you sure you want to sign out?")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Sign Out", (dialog, which) -> signOut())
+                .show();
+    }
+
+    private void signOut() {
+        FirebaseAuth.getInstance().signOut();
+        Intent intent = new Intent(SettingsActivity.this, AuthActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
 
     private void updateUIBasedOnAuthMode() {

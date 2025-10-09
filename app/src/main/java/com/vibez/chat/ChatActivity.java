@@ -5,6 +5,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -66,8 +68,12 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
     private java.util.Map<String, Message> messageMap;
     private String chatRoomId;
     private String otherUserId;
+    private String otherUserName;
     private boolean isMatchmaking = false;
+    private boolean isFirstMessageSent = false;
     private ValueEventListener queueListener;
+    private ValueEventListener otherUserParticipantListener;
+    private DatabaseReference otherUserParticipantRef;
 
     // Typing Indicator
     private DatabaseReference mTypingRef;
@@ -82,6 +88,10 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
     private View replyPreviewLayout;
     private TextView replyPreviewName;
     private TextView replyPreviewText;
+
+    // Suggestion Chips
+    private HorizontalScrollView suggestionChipsLayout;
+    private LinearLayout suggestionChipContainer;
 
 
     @Override
@@ -124,6 +134,8 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
         replyPreviewLayout = findViewById(R.id.reply_preview_layout);
         replyPreviewName = findViewById(R.id.reply_preview_name);
         replyPreviewText = findViewById(R.id.reply_preview_text);
+        suggestionChipsLayout = findViewById(R.id.suggestion_chips_layout);
+        suggestionChipContainer = findViewById(R.id.suggestion_chip_container);
         findViewById(R.id.cancel_reply_button).setOnClickListener(v -> hideReplyPreview());
     }
 
@@ -273,14 +285,14 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 User stranger = snapshot.getValue(User.class);
                 if (stranger != null) {
-                    String name = stranger.getName();
-                    strangerNameTextView.setText(name);
+                    otherUserName = stranger.getName();
+                    strangerNameTextView.setText(otherUserName);
 
                     // Re-create the adapter with the stranger's name for reply quotes
-                    chatAdapter = new ChatAdapter(messageList, messageMap, name, ChatActivity.this);
+                    chatAdapter = new ChatAdapter(messageList, messageMap, otherUserName, ChatActivity.this);
                     chatRecyclerView.setAdapter(chatAdapter);
 
-                    if ("Anonymous".equals(name)) {
+                    if ("Anonymous".equals(otherUserName)) {
                         strangerDetailsTextView.setVisibility(View.GONE);
                         strangerFlagTextView.setText("🤫");
                     } else {
@@ -289,6 +301,9 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
                         strangerFlagTextView.setText(getFlagFromCountry(stranger.getCountry()));
                         strangerFlagTextView.setVisibility(View.VISIBLE);
                     }
+                    sendSystemMessage("You're now chatting with " + otherUserName + ". Be nice!");
+                    populateSuggestionChips();
+                    listenForOtherUserLeave();
                 }
             }
             @Override
@@ -360,57 +375,105 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
 
     private void sendMessage() {
         String messageText = messageEditText.getText().toString().trim();
-        if (!messageText.isEmpty() && mChatRoomRef != null) {
-            String messageId = mChatRoomRef.child("messages").push().getKey();
-            if (messageId != null) {
-                Message message = new Message(messageId, messageText, currentUser.getUid(), System.currentTimeMillis(), "text");
-                if (messageToReply != null) {
-                    message.setReplyToMessageId(messageToReply.getMessageId());
-                }
-                mChatRoomRef.child("messages").child(messageId).setValue(message);
-                messageEditText.setText("");
-                hideReplyPreview();
-            }
+        if (!messageText.isEmpty()) {
+            sendMessage(messageText);
+            messageEditText.setText("");
         }
+    }
+
+    private void sendMessage(String text) {
+        if (mChatRoomRef == null) return;
+
+        if (!isFirstMessageSent) {
+            hideSuggestionChips();
+            isFirstMessageSent = true;
+        }
+
+        String messageId = mChatRoomRef.child("messages").push().getKey();
+        if (messageId != null) {
+            Message message = new Message(messageId, text, currentUser.getUid(), System.currentTimeMillis(), "text");
+            if (messageToReply != null) {
+                message.setReplyToMessageId(messageToReply.getMessageId());
+            }
+            mChatRoomRef.child("messages").child(messageId).setValue(message);
+            hideReplyPreview();
+        }
+    }
+
+    private void sendSystemMessage(String text) {
+        if (mChatRoomRef == null) return;
+        String messageId = mChatRoomRef.child("messages").push().getKey();
+        if (messageId != null) {
+            Message systemMessage = new Message(messageId, text, "system", System.currentTimeMillis(), "system");
+            mChatRoomRef.child("messages").child(messageId).setValue(systemMessage);
+        }
+    }
+
+    private void populateSuggestionChips() {
+        suggestionChipContainer.removeAllViews();
+        String[] suggestions = {"Hi!", "Hey", "Hello", "ASL?", "What's up?"};
+
+        for (String suggestionText : suggestions) {
+            View chipView = LayoutInflater.from(this).inflate(R.layout.item_suggestion_chip, suggestionChipContainer, false);
+            TextView chipTextView = chipView.findViewById(R.id.chip_text);
+            chipTextView.setText(suggestionText);
+            chipView.setOnClickListener(v -> sendMessage(suggestionText));
+            suggestionChipContainer.addView(chipView);
+        }
+        suggestionChipsLayout.setVisibility(View.VISIBLE);
+    }
+
+    private void hideSuggestionChips() {
+        suggestionChipsLayout.setVisibility(View.GONE);
+    }
+
+    private void listenForOtherUserLeave() {
+        if (mChatRoomRef == null || otherUserId == null) return;
+        otherUserParticipantRef = mChatRoomRef.child("participants").child(otherUserId);
+        otherUserParticipantListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                Participant participant = snapshot.getValue(Participant.class);
+                if (participant != null && "left".equals(participant.getStatus())) {
+                    sendSystemMessage(otherUserName + " has left the chat.");
+                    if (otherUserParticipantRef != null && otherUserParticipantListener != null) {
+                        otherUserParticipantRef.removeEventListener(otherUserParticipantListener);
+                    }
+                }
+            }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        };
+        otherUserParticipantRef.addValueEventListener(otherUserParticipantListener);
     }
 
     private void leaveChat(boolean isBackPressed) {
         if (mChatRoomRef != null && currentUser != null) {
-            // 1. Send "User left" system message
-            String messageId = mChatRoomRef.child("messages").push().getKey();
-            if (messageId != null) {
-                Message systemMessage = new Message(messageId, "User left the chat", "system", System.currentTimeMillis(), "system");
-                mChatRoomRef.child("messages").child(messageId).setValue(systemMessage);
-            }
-
-            // 2. Update participant status to "left"
             DatabaseReference participantRef = mChatRoomRef.child("participants").child(currentUser.getUid());
-            participantRef.setValue(new Participant("left", System.currentTimeMillis()));
-
-            // 3. Check if both participants have left to delete the chat
-            checkAndDeleteChatRoom();
-
-            // 4. Handle exit behavior
-            if (isBackPressed) {
-                // Delayed exit for back press
-                new android.os.Handler().postDelayed(this::finish, 1000);
-            } else {
-                // Immediate exit for "Next" button
-                finish();
-            }
+            participantRef.setValue(new Participant("left", System.currentTimeMillis())).addOnCompleteListener(task -> {
+                checkAndDeleteChatRoom();
+                if (isBackPressed) {
+                    new android.os.Handler().postDelayed(this::finish, 500);
+                } else {
+                    finish();
+                }
+            });
         } else {
             finish();
         }
     }
 
     private void findNewMatch() {
-        // This is now similar to leaveChat, but it will trigger a restart.
         if (mChatRoomRef != null && currentUser != null) {
             DatabaseReference participantRef = mChatRoomRef.child("participants").child(currentUser.getUid());
-            participantRef.setValue(new Participant("left", System.currentTimeMillis()));
-            checkAndDeleteChatRoom();
+            participantRef.setValue(new Participant("left", System.currentTimeMillis()))
+                    .addOnCompleteListener(task -> {
+                        checkAndDeleteChatRoom();
+                        recreate();
+                    });
+        } else {
+            recreate();
         }
-        recreate(); // Restart the activity to find a new match
     }
 
     private void setupTypingIndicator() {
@@ -454,32 +517,31 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
 
     private void checkAndDeleteChatRoom() {
         if (mChatRoomRef == null) return;
-        mChatRoomRef.child("participants").addListenerForSingleValueEvent(new ValueEventListener() {
+        DatabaseReference participantsRef = mChatRoomRef.child("participants");
+        participantsRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (!snapshot.exists()) return;
 
                 boolean allLeft = true;
-                int participantCount = 0;
+                if (snapshot.getChildrenCount() < 2) {
+                    allLeft = false;
+                }
+
                 for (DataSnapshot participantSnapshot : snapshot.getChildren()) {
-                    participantCount++;
                     Participant p = participantSnapshot.getValue(Participant.class);
-                    if (p != null && !"left".equals(p.getStatus())) {
+                    if (p == null || !"left".equals(p.getStatus())) {
                         allLeft = false;
                         break;
                     }
                 }
 
-                // Delete only if there were two participants and both have left
-                if (participantCount > 1 && allLeft) {
+                if (allLeft) {
                     mChatRoomRef.removeValue();
                 }
             }
-
             @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                // Log error or handle
-            }
+            public void onCancelled(@NonNull DatabaseError error) {}
         });
     }
 
@@ -629,6 +691,10 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
         }
         if (queueListener != null && currentUser != null) {
             mQueueRef.child(currentUser.getUid()).removeEventListener(queueListener);
+        }
+
+        if (otherUserParticipantRef != null && otherUserParticipantListener != null) {
+            otherUserParticipantRef.removeEventListener(otherUserParticipantListener);
         }
 
         // Clean up typing indicator resources
