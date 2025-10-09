@@ -52,7 +52,12 @@ export default class ChatScreen {
         this.isMatchmaking = false;
         this.currentUser = null;
         this.myQueueRef = null;
+        this.chatRoomRef = null;
+        this.typingRef = null;
         this.unsubscribeQueueListener = null;
+        this.unsubscribeParticipantsListener = null;
+        this.unsubscribeMessagesListener = null;
+        this.unsubscribeTypingListener = null;
         this.chatRoomId = null;
         this.otherUserId = null;
         this.messageMap = {};
@@ -92,26 +97,37 @@ export default class ChatScreen {
         }
         if (this.unsubscribeQueueListener) {
             this.unsubscribeQueueListener();
-            this.unsubscribeQueueListener = null;
         }
-        this.myQueueRef = null;
+        if (this.unsubscribeParticipantsListener) {
+            this.unsubscribeParticipantsListener();
+        }
+        if (this.unsubscribeMessagesListener) {
+            this.unsubscribeMessagesListener();
+        }
+        if (this.unsubscribeTypingListener) {
+            this.unsubscribeTypingListener();
+        }
 
-        // Cleanup chat listeners
-        if (this.chatRoomRef) {
-            this.chatRoomRef.off(); // Detaches all listeners on this reference
+        // Ensure my typing status is cleared on exit
+        if(this.typingRef && this.currentUser) {
+            const myTypingRef = ref(database, `chats/${this.chatRoomId}/typing/${this.currentUser.uid}`);
+            remove(myTypingRef);
         }
-        if (this.typingRef) {
-            this.typingRef.off();
-            this.typingRef.child(this.currentUser.uid).remove();
-        }
+
         clearTimeout(this.typingTimeout);
 
         // Reset state
-        this.chatRoomId = null;
-        this.otherUserId = null;
+        this.isMatchmaking = false;
+        this.currentUser = null;
+        this.myQueueRef = null;
         this.chatRoomRef = null;
         this.typingRef = null;
-        this.isMatchmaking = false;
+        this.unsubscribeQueueListener = null;
+        this.unsubscribeParticipantsListener = null;
+        this.unsubscribeMessagesListener = null;
+        this.unsubscribeTypingListener = null;
+        this.chatRoomId = null;
+        this.otherUserId = null;
         this.messageMap = {};
         this.hideReplyPreview();
         this.hasSentFirstMessage = false;
@@ -214,12 +230,21 @@ export default class ChatScreen {
             remove(this.myQueueRef);
         }
 
+        // Clear UI and reset state for the new chat
+        this.messagesContainer.innerHTML = '';
+        this.messageMap = {};
+        this.hasSentFirstMessage = false;
+        this.hideReplyPreview();
+        this.hideSuggestions();
+
+
         this.loadingOverlay.classList.remove('active');
         this.element.querySelector('.chat-toolbar').style.visibility = 'visible';
 
         this.fetchAndDisplayStrangerInfo(this.otherUserId);
         this.listenForMessages();
         this.setupTypingIndicator();
+        this.listenForParticipantChanges();
     }
 
     async attemptToClaim(otherUserId) {
@@ -262,11 +287,32 @@ export default class ChatScreen {
 
     async fetchAndDisplayStrangerInfo(userId) {
         const userRef = ref(database, 'users/' + userId);
-        const snapshot = await get(userRef);
-        if (snapshot.exists()) {
+
+        // Retry mechanism to handle race condition where user data might not be written yet
+        const maxRetries = 5;
+        let attempt = 0;
+        let snapshot = null;
+
+        while (attempt < maxRetries) {
+            snapshot = await get(userRef);
+            if (snapshot.exists()) {
+                break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 500)); // wait 500ms
+            attempt++;
+        }
+
+        if (snapshot && snapshot.exists()) {
             const stranger = snapshot.val();
             this.strangerName.textContent = stranger.name;
-            this.strangerInfo.textContent = `${stranger.gender}, ${stranger.age}`;
+
+            if (stranger.name === 'Anonymous') {
+                this.strangerInfo.style.display = 'none';
+            } else {
+                this.strangerInfo.textContent = `${stranger.gender}, ${stranger.age}`;
+                this.strangerInfo.style.display = 'block';
+            }
+
             this.strangerFlag.textContent = this.getFlagFromCountry(stranger.country);
 
             // Add system message and show suggestions
@@ -275,12 +321,16 @@ export default class ChatScreen {
                 text: `You're now chatting with ${stranger.name}. Be nice!`
             });
             this.showSuggestions();
+        } else {
+            this.app.showToast("Could not load stranger's details. Please try again.");
+            this.strangerName.textContent = 'Stranger';
+            this.strangerInfo.textContent = 'Details unavailable';
         }
     }
 
     getFlagFromCountry(countryCode) {
-        const flags = { 'US': '🇺🇸', 'CA': '🇨🇦', 'GB': '🇬🇧', 'AU': '🇦🇺', 'IN': '🇮🇳' };
-        return flags[countryCode] || '🏳️';
+        const flags = { 'US': 'ðŸ‡ºðŸ‡¸', 'CA': 'ðŸ‡¨ðŸ‡¦', 'GB': 'ðŸ‡¬ðŸ‡§', 'AU': 'ðŸ‡¦ðŸ‡º', 'IN': 'ðŸ‡®ðŸ‡³' };
+        return flags[countryCode] || 'ðŸŒ';
     }
 
     setupTypingIndicator() {
@@ -289,7 +339,7 @@ export default class ChatScreen {
         const otherUserTypingRef = ref(database, `chats/${this.chatRoomId}/typing/${this.otherUserId}`);
 
         // Listen for other user's typing status
-        onValue(otherUserTypingRef, (snapshot) => {
+        this.unsubscribeTypingListener = onValue(otherUserTypingRef, (snapshot) => {
             if (snapshot.exists() && snapshot.val() === true) {
                 this.typingIndicator.style.display = 'block';
                 this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
@@ -317,25 +367,19 @@ export default class ChatScreen {
         this.chatRoomRef = ref(database, `chats/${this.chatRoomId}`);
         const messagesRef = ref(database, `chats/${this.chatRoomId}/messages`);
 
-        // Clear UI and map for new chat
-        const typingIndicator = this.messagesContainer.querySelector('.typing-indicator-container');
-        this.messagesContainer.innerHTML = '';
-        if(typingIndicator) this.messagesContainer.appendChild(typingIndicator);
-        this.messageMap = {};
-
-        onChildAdded(messagesRef, (snapshot) => {
+        // Combine listeners and store the unsubscribe function
+        const onNewMessage = (snapshot) => {
             const message = snapshot.val();
             if (message && message.messageId) {
                 this.messageMap[message.messageId] = message;
                 this.addMessageToUI(message);
             }
-        });
+        };
 
-        onChildChanged(messagesRef, (snapshot) => {
+        const onMessageUpdate = (snapshot) => {
             const updatedMessage = snapshot.val();
             if (updatedMessage && updatedMessage.messageId) {
                 this.messageMap[updatedMessage.messageId] = updatedMessage;
-                // Find the message wrapper in the DOM and update its reactions
                 const messageWrapper = this.messagesContainer.querySelector(`[data-message-id="${updatedMessage.messageId}"]`);
                 if (messageWrapper) {
                     const oldReactionsContainer = messageWrapper.querySelector('.reactions-container');
@@ -347,7 +391,16 @@ export default class ChatScreen {
                     }
                 }
             }
-        });
+        };
+
+        const unsubscribeAdded = onChildAdded(messagesRef, onNewMessage);
+        const unsubscribeChanged = onChildChanged(messagesRef, onMessageUpdate);
+
+        // Store a single function to unsubscribe from both
+        this.unsubscribeMessagesListener = () => {
+            unsubscribeAdded();
+            unsubscribeChanged();
+        };
     }
 
     // --- UI RENDERING ---
@@ -385,7 +438,8 @@ export default class ChatScreen {
 
         wrapper.appendChild(messageEl);
         wrapper.appendChild(reactionsContainer);
-        this.messagesContainer.insertBefore(wrapper, this.typingIndicator);
+
+        this.messagesContainer.appendChild(wrapper);
         this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
     }
 
@@ -429,7 +483,7 @@ export default class ChatScreen {
             } else { // It was a click/tap
                 const currentTime = new Date().getTime();
                 if (currentTime - this.lastClickTime < 300) {
-                    this.addReaction('❤️', message);
+                    this.addReaction('â¤ï¸', message);
                 }
                 this.lastClickTime = currentTime;
             }
@@ -562,18 +616,25 @@ export default class ChatScreen {
     }
 
     async leaveChat(isFindingNewMatch = false) {
-        if (this.chatRoomRef && this.currentUser) {
-            const participantRef = ref(database, `chats/${this.chatRoomId}/participants/${this.currentUser.uid}`);
+        // Keep a reference to the needed state before it might be cleared
+        const chatRoomId = this.chatRoomId;
+        const currentUid = this.currentUser ? this.currentUser.uid : null;
+
+        if (chatRoomId && currentUid) {
+            // Update participant status to "left"
+            const participantRef = ref(database, `chats/${chatRoomId}/participants/${currentUid}`);
             await set(participantRef, { status: 'left', left: serverTimestamp() });
 
+            // Check if the other participant has also left to delete the chat room
             await this.checkAndDeleteChatRoom();
         }
 
+        // Now handle navigation/reset
         if (isFindingNewMatch) {
-            this.onExit();
-            this.onEnter();
+            this.onExit(); // Clean up everything from the old chat
+            this.onEnter(); // Restart the whole matchmaking process
         } else {
-            this.app.navigate('home');
+            this.app.navigate('home'); // This will trigger onExit() automatically via app navigation
         }
     }
 
@@ -590,6 +651,7 @@ export default class ChatScreen {
             const participants = snapshot.val();
             const participantKeys = Object.keys(participants);
 
+            // Ensure there are at least two participants before checking
             if (participantKeys.length < 2) {
                 return;
             }
@@ -599,6 +661,31 @@ export default class ChatScreen {
                 await remove(this.chatRoomRef);
             }
         }
+    }
+
+    listenForParticipantChanges() {
+        if (this.unsubscribeParticipantsListener) {
+            this.unsubscribeParticipantsListener();
+        }
+        const participantsRef = ref(database, `chats/${this.chatRoomId}/participants`);
+        this.unsubscribeParticipantsListener = onValue(participantsRef, (snapshot) => {
+            if (!snapshot.exists()) return;
+
+            const participants = snapshot.val();
+            const otherUser = participants[this.otherUserId];
+
+            if (otherUser && otherUser.status === 'left') {
+                this.addMessageToUI({
+                    type: 'system',
+                    text: `${this.strangerName.textContent} has left the chat.`
+                });
+                // Stop listening once the user has left to prevent multiple messages
+                if (this.unsubscribeParticipantsListener) {
+                    this.unsubscribeParticipantsListener();
+                    this.unsubscribeParticipantsListener = null;
+                }
+            }
+        });
     }
 
     handleBack() {
