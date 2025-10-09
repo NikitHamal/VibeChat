@@ -167,7 +167,15 @@ public class ProfileActivity extends AppCompatActivity {
         mUserRef.child("name").setValue(name);
         mUserRef.child("country").setValue(country);
         mUserRef.child("gender").setValue(gender.equals("Not specified") ? null : gender);
-        mUserRef.child("age").setValue(ageStr.isEmpty() ? 0 : Integer.parseInt(ageStr));
+
+        try {
+            int age = ageStr.isEmpty() ? 0 : Integer.parseInt(ageStr);
+            mUserRef.child("age").setValue(age);
+        } catch (NumberFormatException e) {
+            // If parsing fails, default to 0 to avoid saving a string
+            mUserRef.child("age").setValue(0);
+            Toast.makeText(this, "Invalid age, not saved.", Toast.LENGTH_SHORT).show();
+        }
 
         loadProfile();
         exitEditMode();
