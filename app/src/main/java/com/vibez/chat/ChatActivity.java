@@ -284,27 +284,53 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 User stranger = snapshot.getValue(User.class);
-                if (stranger != null) {
-                    otherUserName = stranger.getName();
+                if (stranger == null) {
+                    // Fallback defaults when user profile is missing
+                    otherUserName = "Anonymous";
                     strangerNameTextView.setText(otherUserName);
+                    strangerDetailsTextView.setVisibility(View.GONE);
+                    strangerFlagTextView.setText(getFlagFromCountry(null));
+                    strangerFlagTextView.setVisibility(View.VISIBLE);
 
-                    // Re-create the adapter with the stranger's name for reply quotes
                     chatAdapter = new ChatAdapter(messageList, messageMap, otherUserName, ChatActivity.this);
                     chatRecyclerView.setAdapter(chatAdapter);
-
-                    if ("Anonymous".equals(otherUserName)) {
-                        strangerDetailsTextView.setVisibility(View.GONE);
-                        strangerFlagTextView.setText("🤫");
-                    } else {
-                        strangerDetailsTextView.setText(stranger.getGender() + ", " + stranger.getAge());
-                        strangerDetailsTextView.setVisibility(View.VISIBLE);
-                        strangerFlagTextView.setText(getFlagFromCountry(stranger.getCountry()));
-                        strangerFlagTextView.setVisibility(View.VISIBLE);
-                    }
                     sendSystemMessage("You're now chatting with " + otherUserName + ". Be nice!");
                     populateSuggestionChips();
                     listenForOtherUserLeave();
+                    return;
                 }
+
+                otherUserName = stranger.getName() != null && !stranger.getName().trim().isEmpty() ? stranger.getName() : "Anonymous";
+                strangerNameTextView.setText(otherUserName);
+
+                // Re-create the adapter with the stranger's name for reply quotes
+                chatAdapter = new ChatAdapter(messageList, messageMap, otherUserName, ChatActivity.this);
+                chatRecyclerView.setAdapter(chatAdapter);
+
+                boolean isAnonymous = "Anonymous".equalsIgnoreCase(otherUserName.trim());
+                boolean hasGender = stranger.getGender() != null && !stranger.getGender().trim().isEmpty() && !"Not specified".equalsIgnoreCase(stranger.getGender().trim());
+                boolean hasAge = stranger.getAge() > 0;
+
+                if (isAnonymous || (!hasGender && !hasAge)) {
+                    strangerDetailsTextView.setVisibility(View.GONE);
+                } else {
+                    StringBuilder info = new StringBuilder();
+                    if (hasGender) info.append(stranger.getGender());
+                    if (hasAge) {
+                        if (info.length() > 0) info.append(", ");
+                        info.append(stranger.getAge());
+                    }
+                    strangerDetailsTextView.setText(info.toString());
+                    strangerDetailsTextView.setVisibility(View.VISIBLE);
+                }
+
+                // Country flag: default to earth if missing
+                String flag = getFlagFromCountry(stranger.getCountry());
+                strangerFlagTextView.setText(flag);
+                strangerFlagTextView.setVisibility(View.VISIBLE);
+                sendSystemMessage("You're now chatting with " + otherUserName + ". Be nice!");
+                populateSuggestionChips();
+                listenForOtherUserLeave();
             }
             @Override
             public void onCancelled(@NonNull DatabaseError error) {}
@@ -312,15 +338,27 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
     }
 
     private String getFlagFromCountry(String country) {
-        // This is a simplified mapping. A real app would use a library.
-        if (country == null) return "🏳️";
-        switch (country) {
-            case "United States": return "🇺🇸";
-            case "Canada": return "🇨🇦";
-            case "United Kingdom": return "🇬🇧";
-            case "Australia": return "🇦🇺";
-            case "India": return "🇮🇳";
-            default: return "🏳️";
+        if (country == null || country.trim().isEmpty()) return "🌍";
+        switch (country.trim()) {
+            case "United States":
+            case "US":
+            case "USA":
+                return "🇺🇸";
+            case "Canada":
+            case "CA":
+                return "🇨🇦";
+            case "United Kingdom":
+            case "UK":
+            case "GB":
+                return "🇬🇧";
+            case "Australia":
+            case "AU":
+                return "🇦🇺";
+            case "India":
+            case "IN":
+                return "🇮🇳";
+            default:
+                return "🌍";
         }
     }
 
