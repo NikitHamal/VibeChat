@@ -52,7 +52,7 @@ export default class ChatScreen {
         this.isMatchmaking = false;
         this.currentUser = null;
         this.myQueueRef = null;
-        this.queueListener = null;
+        this.unsubscribeQueueListener = null;
         this.chatRoomId = null;
         this.otherUserId = null;
         this.messageMap = {};
@@ -90,11 +90,11 @@ export default class ChatScreen {
         if (this.isMatchmaking && this.myQueueRef) {
             remove(this.myQueueRef);
         }
-        if (this.queueListener) {
-            ref(database, 'queue').off('value', this.queueListener);
+        if (this.unsubscribeQueueListener) {
+            this.unsubscribeQueueListener();
+            this.unsubscribeQueueListener = null;
         }
         this.myQueueRef = null;
-        this.queueListener = null;
 
         // Cleanup chat listeners
         if (this.chatRoomRef) {
@@ -147,10 +147,9 @@ export default class ChatScreen {
         clearTimeout(this.matchmakingTimeout);
 
         // Detach the listener first to stop processing queue updates
-        if (this.queueListener) {
-            const queueRef = ref(database, 'queue');
-            queueRef.off('value', this.queueListener);
-            this.queueListener = null;
+        if (this.unsubscribeQueueListener) {
+            this.unsubscribeQueueListener();
+            this.unsubscribeQueueListener = null;
         }
 
         // Remove user from the backend queue
@@ -172,9 +171,13 @@ export default class ChatScreen {
 
     listenForMatch() {
         const queueRef = ref(database, 'queue');
-        this.queueListener = onValue(queueRef, (snapshot) => {
+        // Store the unsubscribe function returned by onValue
+        this.unsubscribeQueueListener = onValue(queueRef, (snapshot) => {
             if (!this.isMatchmaking) {
-                queueRef.off('value', this.queueListener);
+                if (this.unsubscribeQueueListener) {
+                    this.unsubscribeQueueListener();
+                    this.unsubscribeQueueListener = null;
+                }
                 return;
             }
 
@@ -203,9 +206,9 @@ export default class ChatScreen {
     }
 
     connectToChat() {
-        if (this.queueListener) {
-            ref(database, 'queue').off('value', this.queueListener);
-            this.queueListener = null;
+        if (this.unsubscribeQueueListener) {
+            this.unsubscribeQueueListener();
+            this.unsubscribeQueueListener = null;
         }
         if (this.myQueueRef) {
             remove(this.myQueueRef);
@@ -560,50 +563,42 @@ export default class ChatScreen {
 
     async leaveChat(isFindingNewMatch = false) {
         if (this.chatRoomRef && this.currentUser) {
-            // 1. Send "User left" system message
-            const messagesRef = ref(database, `chats/${this.chatRoomId}/messages`);
-            const newMessageRef = push(messagesRef);
-            await set(newMessageRef, {
-                messageId: newMessageRef.key,
-                text: 'User left the chat',
-                senderId: 'system',
-                timestamp: serverTimestamp(),
-                type: 'system'
-            });
-
-            // 2. Update participant status to "left"
             const participantRef = ref(database, `chats/${this.chatRoomId}/participants/${this.currentUser.uid}`);
             await set(participantRef, { status: 'left', left: serverTimestamp() });
 
-            // 3. Check if both participants have left to delete the chat
-            this.checkAndDeleteChatRoom();
+            await this.checkAndDeleteChatRoom();
         }
 
-        // 4. Handle exit behavior
         if (isFindingNewMatch) {
             this.onExit();
-            this.onEnter(); // Restart matchmaking
+            this.onEnter();
         } else {
             this.app.navigate('home');
         }
+    }
+
+    findNewMatch() {
+        this.leaveChat(true);
     }
 
     async checkAndDeleteChatRoom() {
         if (!this.chatRoomRef) return;
         const participantsRef = ref(database, `chats/${this.chatRoomId}/participants`);
         const snapshot = await get(participantsRef);
-        
+
         if (snapshot.exists()) {
             const participants = snapshot.val();
-            const allLeft = Object.values(participants).every(p => p.status === 'left');
+            const participantKeys = Object.keys(participants);
+
+            if (participantKeys.length < 2) {
+                return;
+            }
+
+            const allLeft = Object.values(participants).every(p => p && p.status === 'left');
             if (allLeft) {
-                remove(this.chatRoomRef);
+                await remove(this.chatRoomRef);
             }
         }
-    }
-
-    findNewMatch() {
-        this.leaveChat(true);
     }
 
     handleBack() {

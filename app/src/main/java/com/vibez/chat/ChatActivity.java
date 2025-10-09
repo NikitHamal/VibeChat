@@ -72,7 +72,7 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
     private boolean isMatchmaking = false;
     private boolean isFirstMessageSent = false;
     private ValueEventListener queueListener;
-    private ValueEventListener participantListener;
+    private ValueEventListener otherUserParticipantListener;
     private DatabaseReference otherUserParticipantRef;
 
     // Typing Indicator
@@ -285,7 +285,7 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 User stranger = snapshot.getValue(User.class);
                 if (stranger != null) {
-                    otherUserName = stranger.getName(); // Store stranger's name
+                    otherUserName = stranger.getName();
                     strangerNameTextView.setText(otherUserName);
 
                     // Re-create the adapter with the stranger's name for reply quotes
@@ -301,12 +301,9 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
                         strangerFlagTextView.setText(getFlagFromCountry(stranger.getCountry()));
                         strangerFlagTextView.setVisibility(View.VISIBLE);
                     }
-
-                    // --- NEW: System Messages and Suggestions ---
                     sendSystemMessage("You're now chatting with " + otherUserName + ". Be nice!");
                     populateSuggestionChips();
-                    listenForParticipantChanges();
-                    // -----------------------------------------
+                    listenForOtherUserLeave();
                 }
             }
             @Override
@@ -387,7 +384,6 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
     private void sendMessage(String text) {
         if (mChatRoomRef == null) return;
 
-        // Hide suggestions on first message
         if (!isFirstMessageSent) {
             hideSuggestionChips();
             isFirstMessageSent = true;
@@ -414,16 +410,14 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
     }
 
     private void populateSuggestionChips() {
-        suggestionChipContainer.removeAllViews(); // Clear any old chips
+        suggestionChipContainer.removeAllViews();
         String[] suggestions = {"Hi!", "Hey", "Hello", "ASL?", "What's up?"};
 
         for (String suggestionText : suggestions) {
             View chipView = LayoutInflater.from(this).inflate(R.layout.item_suggestion_chip, suggestionChipContainer, false);
             TextView chipTextView = chipView.findViewById(R.id.chip_text);
             chipTextView.setText(suggestionText);
-            chipView.setOnClickListener(v -> {
-                sendMessage(suggestionText);
-            });
+            chipView.setOnClickListener(v -> sendMessage(suggestionText));
             suggestionChipContainer.addView(chipView);
         }
         suggestionChipsLayout.setVisibility(View.VISIBLE);
@@ -433,61 +427,53 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
         suggestionChipsLayout.setVisibility(View.GONE);
     }
 
-
-    private void listenForParticipantChanges() {
+    private void listenForOtherUserLeave() {
         if (mChatRoomRef == null || otherUserId == null) return;
         otherUserParticipantRef = mChatRoomRef.child("participants").child(otherUserId);
-
-        participantListener = new ValueEventListener() {
+        otherUserParticipantListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 Participant participant = snapshot.getValue(Participant.class);
                 if (participant != null && "left".equals(participant.getStatus())) {
                     sendSystemMessage(otherUserName + " has left the chat.");
-                    // Remove listener after triggering once
-                    if (otherUserParticipantRef != null && participantListener != null) {
-                        otherUserParticipantRef.removeEventListener(participantListener);
+                    if (otherUserParticipantRef != null && otherUserParticipantListener != null) {
+                        otherUserParticipantRef.removeEventListener(otherUserParticipantListener);
                     }
                 }
             }
-
             @Override
             public void onCancelled(@NonNull DatabaseError error) {}
         };
-        otherUserParticipantRef.addValueEventListener(participantListener);
+        otherUserParticipantRef.addValueEventListener(otherUserParticipantListener);
     }
-
 
     private void leaveChat(boolean isBackPressed) {
         if (mChatRoomRef != null && currentUser != null) {
-            // 1. Update participant status to "left"
             DatabaseReference participantRef = mChatRoomRef.child("participants").child(currentUser.getUid());
-            participantRef.setValue(new Participant("left", System.currentTimeMillis()));
-
-            // 2. Check if both participants have left to delete the chat
-            checkAndDeleteChatRoom();
-
-            // 3. Handle exit behavior
-            if (isBackPressed) {
-                // Delayed exit for back press to allow "left" status to propagate
-                new android.os.Handler().postDelayed(this::finish, 500);
-            } else {
-                // Immediate exit for "Next" button
-                finish();
-            }
+            participantRef.setValue(new Participant("left", System.currentTimeMillis())).addOnCompleteListener(task -> {
+                checkAndDeleteChatRoom();
+                if (isBackPressed) {
+                    new android.os.Handler().postDelayed(this::finish, 500);
+                } else {
+                    finish();
+                }
+            });
         } else {
             finish();
         }
     }
 
     private void findNewMatch() {
-        // This is now similar to leaveChat, but it will trigger a restart.
         if (mChatRoomRef != null && currentUser != null) {
             DatabaseReference participantRef = mChatRoomRef.child("participants").child(currentUser.getUid());
-            participantRef.setValue(new Participant("left", System.currentTimeMillis()));
-            checkAndDeleteChatRoom();
+            participantRef.setValue(new Participant("left", System.currentTimeMillis()))
+                    .addOnCompleteListener(task -> {
+                        checkAndDeleteChatRoom();
+                        recreate();
+                    });
+        } else {
+            recreate();
         }
-        recreate(); // Restart the activity to find a new match
     }
 
     private void setupTypingIndicator() {
@@ -531,32 +517,31 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
 
     private void checkAndDeleteChatRoom() {
         if (mChatRoomRef == null) return;
-        mChatRoomRef.child("participants").addListenerForSingleValueEvent(new ValueEventListener() {
+        DatabaseReference participantsRef = mChatRoomRef.child("participants");
+        participantsRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (!snapshot.exists()) return;
 
                 boolean allLeft = true;
-                int participantCount = 0;
+                if (snapshot.getChildrenCount() < 2) {
+                    allLeft = false;
+                }
+
                 for (DataSnapshot participantSnapshot : snapshot.getChildren()) {
-                    participantCount++;
                     Participant p = participantSnapshot.getValue(Participant.class);
-                    if (p != null && !"left".equals(p.getStatus())) {
+                    if (p == null || !"left".equals(p.getStatus())) {
                         allLeft = false;
                         break;
                     }
                 }
 
-                // Delete only if there were two participants and both have left
-                if (participantCount > 1 && allLeft) {
+                if (allLeft) {
                     mChatRoomRef.removeValue();
                 }
             }
-
             @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                // Log error or handle
-            }
+            public void onCancelled(@NonNull DatabaseError error) {}
         });
     }
 
@@ -701,21 +686,20 @@ public class ChatActivity extends AppCompatActivity implements ChatAdapter.OnMes
     protected void onDestroy() {
         super.onDestroy();
         // Clean up matchmaking listeners
-        if (isMatchmaking && currentUser != null) {
+        if (isMatchmaking) {
             mQueueRef.child(currentUser.getUid()).removeValue();
         }
         if (queueListener != null && currentUser != null) {
             mQueueRef.child(currentUser.getUid()).removeEventListener(queueListener);
         }
 
-        // Clean up participant listener
-        if (otherUserParticipantRef != null && participantListener != null) {
-            otherUserParticipantRef.removeEventListener(participantListener);
+        if (otherUserParticipantRef != null && otherUserParticipantListener != null) {
+            otherUserParticipantRef.removeEventListener(otherUserParticipantListener);
         }
 
         // Clean up typing indicator resources
         if (mTypingRef != null && currentUser != null) {
-            mTypingRef.child(currentUser.getUid()).setValue(false); // Clear own typing status
+            mTypingRef.child(currentUser.getUid().toString()).setValue(false); // Clear own typing status
             if (typingListener != null && otherUserId != null) {
                 mTypingRef.child(otherUserId).removeEventListener(typingListener);
             }

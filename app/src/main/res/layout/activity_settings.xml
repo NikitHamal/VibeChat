@@ -193,13 +193,6 @@
 
                         </LinearLayout>
 
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_arrow_back"
-                            android:rotation="180"
-                            app:tint="?attr/colorOnSurfaceVariant" />
-
                     </LinearLayout>
 
                 </LinearLayout>
@@ -291,13 +284,6 @@
                                 android:fontFamily="@font/poppins" />
 
                         </LinearLayout>
-
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_arrow_back"
-                            android:rotation="180"
-                            app:tint="?attr/colorOnSurfaceVariant" />
 
                     </LinearLayout>
 
